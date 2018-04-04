@@ -1,7 +1,7 @@
 """ Tests of wc_env command line interface (wc_env.__main__)
 
-:Author: Name <email>
-:Date: 2018-4-4
+:Author: Arthur Goldberg <Arthur.Goldberg@mssm.edu>
+:Date: 2018-04-04
 :Copyright: 2018, Karr Lab
 :License: MIT
 """
