@@ -8,7 +8,9 @@
 
 # wc_env
 
-Write an overview
+Portable environment for easily installing and running WC code.
+
+TODO: more description
 
 ## Installation
 1. Install dependencies
