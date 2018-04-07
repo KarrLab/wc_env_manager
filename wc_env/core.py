@@ -47,19 +47,6 @@ CONTAINER_DEFAULTS = dict(
 )
 
 '''
-CONTAINER_DEFAULTS['configs_repo_username']
-CONTAINER_DEFAULTS['docker_image_version']
-CONTAINER_DEFAULTS['bash_profile_file']
-CONTAINER_DEFAULTS['git_config_file']
-CONTAINER_DEFAULTS['karr_lab_repo_root']
-CONTAINER_DEFAULTS['container_root_dir']
-CONTAINER_DEFAULTS['ssh_key']
-CONTAINER_DEFAULTS['python_version']
-CONTAINER_DEFAULTS['container_local_repos']
-CONTAINER_DEFAULTS['container_repo_dir']
-CONTAINER_DEFAULTS['docker_image_name']
-CONTAINER_DEFAULTS['configs_repo_pwd_file']
-
 sec_params = ['configs_repo_username','configs_repo_pwd_file','ssh_key','git_config_file']
 for k in sec_params:
     print("self.{} = {}".format(k,k))
@@ -72,8 +59,9 @@ class ManageContainer(object):
     """ Manage a Docker container for `wc_env`
 
     Attributes:
-        image_version (:obj:`str`): version of the karrlab Docker image at Docker Hub
-        image_name (:obj:`str`, optional): name of the karrlab Docker image at Docker Hub
+        local_wc_repos (:obj:`list` of `str`): directories of local KarrLab repos being modified
+        image_version (:obj:`str`): version of the KarrLab Docker image at Docker Hub
+        image_name (:obj:`str`, optional): name of the KarrLab Docker image at Docker Hub
         python_version (:obj:`str`, optional): Python version to use to set up the container
         container_repo_dir (:obj:`str`, optional): pathname to dir containing mounted active repos
         configs_repo_username (:obj:`str`): username for the private repo `KarrLab/karr_lab_config`
@@ -85,6 +73,7 @@ class ManageContainer(object):
     """
 
     def __init__(self,
+        local_wc_repos,
         image_version,
         image_name=CONTAINER_DEFAULTS['docker_image_name'],
         python_version=CONTAINER_DEFAULTS['python_version'],
@@ -94,6 +83,10 @@ class ManageContainer(object):
         ssh_key=CONTAINER_DEFAULTS['ssh_key'],
         git_config_file=CONTAINER_DEFAULTS['git_config_file'],
         verbose=False):
+        # convert local_wc_repos to full pathnames
+        self.local_wc_repos = []
+        for local_wc_repo_dir in local_wc_repos:
+            self.local_wc_repos.append(os.path.abspath(os.path.expanduser(local_wc_repo_dir)))
         self.image_version = image_version
         self.image_name = image_name
         self.python_version = python_version
@@ -154,13 +147,15 @@ class ManageContainer(object):
         Raises:
             :obj:`type of raised exception(s)`: description of raised exceptions
         """
-        # pull the Docker wc_env image from Docker Hub
+        # todo after image stored on Hub: pull the Docker wc_env image from Docker Hub
         # create a container name
+        # self.container_name = 
         # create the container, with a shared volume of local WC repos
         # load access credentials into the Docker container
         # copy a .gitconfig file into the container
         # use pip to install KarrLab pkg_utils and karr_lab_build_utils in the container
         # clone KarrLab GitHub repos into the container
+        # build a PYTHONPATH for the container with local KarrLab repos ahead of cloned KarrLab repos
         # copy a custom .bash_profile file into the container
         # attach to the running container
         pass
