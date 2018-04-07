@@ -7,7 +7,9 @@
 """
 
 import os
+from datetime import datetime
 from pathlib import Path
+import docker
 
 
 class Error(Exception):
@@ -41,9 +43,10 @@ CONTAINER_DEFAULTS = dict(
     docker_image_version='0.0.1',
     container_repo_dir='/usr/git_repos',
     configs_repo_pwd_file='tokens/configs_repo_password',
+    karr_lab_repo_root='https://GitHub.com/KarrLab/',
     container_root_dir='/root/',
     container_local_repos='/usr/local_repos/',
-    karr_lab_repo_root='https://GitHub.com/KarrLab/'
+    wc_env_container_name_prefix='wc_env_',
 )
 
 '''
@@ -61,15 +64,18 @@ class ManageContainer(object):
     Attributes:
         local_wc_repos (:obj:`list` of `str`): directories of local KarrLab repos being modified
         image_version (:obj:`str`): version of the KarrLab Docker image at Docker Hub
-        image_name (:obj:`str`, optional): name of the KarrLab Docker image at Docker Hub
-        python_version (:obj:`str`, optional): Python version to use to set up the container
-        container_repo_dir (:obj:`str`, optional): pathname to dir containing mounted active repos
+        image_name (:obj:`str`): name of the KarrLab Docker image at Docker Hub
+        python_version (:obj:`str`): Python version to use to set up the container
+        container_repo_dir (:obj:`str`): pathname to dir containing mounted active repos
         configs_repo_username (:obj:`str`): username for the private repo `KarrLab/karr_lab_config`
         configs_repo_pwd_file (:obj:`str`): password for the private repo `KarrLab/karr_lab_config`
         ssh_key (:obj:`str`): the path to a private ssh key file that can access GitHub;
             it cannot be protected by a passphrase
         git_config_file (:obj:`str`): a .gitconfig file that indicates how to access GitHub
-        verbose (:obj:`bool`, optional): if True, produce verbose output
+        verbose (:obj:`bool`): if True, produce verbose output
+        docker_client (:obj:`docker.client.DockerClient`): client connected to the docker daemon
+        container (:obj:`Container`): the Docker container being managed
+        container_name (:obj:`str`): name of the Docker container being managed
     """
 
     def __init__(self,
@@ -83,6 +89,20 @@ class ManageContainer(object):
         ssh_key=CONTAINER_DEFAULTS['ssh_key'],
         git_config_file=CONTAINER_DEFAULTS['git_config_file'],
         verbose=False):
+        """
+            Args:
+                local_wc_repos (:obj:`list` of `str`): directories of local KarrLab repos being modified
+                image_version (:obj:`str`): version of the KarrLab Docker image at Docker Hub
+                image_name (:obj:`str`, optional): name of the KarrLab Docker image at Docker Hub
+                python_version (:obj:`str`, optional): Python version to use to set up the container
+                container_repo_dir (:obj:`str`, optional): pathname to dir containing mounted active repos
+                configs_repo_username (:obj:`str`): username for the private repo `KarrLab/karr_lab_config`
+                configs_repo_pwd_file (:obj:`str`): password for the private repo `KarrLab/karr_lab_config`
+                ssh_key (:obj:`str`): the path to a private ssh key file that can access GitHub;
+                    it cannot be protected by a passphrase
+                git_config_file (:obj:`str`): a .gitconfig file that indicates how to access GitHub
+                verbose (:obj:`bool`, optional): if True, produce verbose output
+        """
         # convert local_wc_repos to full pathnames
         self.local_wc_repos = []
         for local_wc_repo_dir in local_wc_repos:
@@ -96,7 +116,9 @@ class ManageContainer(object):
         self.ssh_key = ssh_key
         self.git_config_file = git_config_file
         self.verbose = verbose
-        self.last_container = None
+        self.docker_client = docker.from_env()
+        self.container = None
+        self.container_name = None
 
     def check_credentials(self):
         """ Validate the credentials needed in a Docker container for `wc_env`
@@ -133,11 +155,9 @@ class ManageContainer(object):
                 "to KarrLab/karr_lab_config must be provided.")
         # todo: test credentials against GitHub and the config repo
 
-    def build(self, arg_1, arg_2, kwarg_1=None, kwarg_2=None):
+    def build(self, kwarg_1=None):
         """ Build a Docker container for `wc_env`
 
-        Args:
-            arg_1 (:obj:`type of arg_1`): description of arg_1
             kwarg_1 (:obj:`type of kwarg_1`, optional): description of kwarg_1
             ...
 
@@ -148,9 +168,14 @@ class ManageContainer(object):
             :obj:`type of raised exception(s)`: description of raised exceptions
         """
         # todo after image stored on Hub: pull the Docker wc_env image from Docker Hub
-        # create a container name
-        # self.container_name = 
-        # create the container, with a shared volume of local WC repos
+        # create a unique container name
+        # todo: let user specify the container name
+        self.container_name = "{}_{}".format(CONTAINER_DEFAULTS['wc_env_container_name_prefix'],
+            datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
+        # create the container
+        self.container = self.docker_client.containers.run("ubuntu", "echo hello world", detach=True)
+
+        # todo: ... with a shared volume of local WC repos
         # load access credentials into the Docker container
         # copy a .gitconfig file into the container
         # use pip to install KarrLab pkg_utils and karr_lab_build_utils in the container
@@ -158,7 +183,6 @@ class ManageContainer(object):
         # build a PYTHONPATH for the container with local KarrLab repos ahead of cloned KarrLab repos
         # copy a custom .bash_profile file into the container
         # attach to the running container
-        pass
 
     def run(self, arg_1, arg_2, kwarg_1=None, kwarg_2=None):
         """ Run a Docker container for `wc_env`

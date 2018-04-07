@@ -70,3 +70,6 @@ class TestManageContainer(unittest.TestCase):
         with self.assertRaises(wc_env.EnvError) as context:
             manage_container.check_credentials()
 
+    def test_build(self):
+        manage_container = wc_env.ManageContainer([], '0.1')
+        manage_container.build()
