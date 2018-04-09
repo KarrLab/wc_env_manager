@@ -9,6 +9,8 @@
 import os
 from datetime import datetime
 from pathlib import Path
+import tempfile
+import tarfile
 import docker
 
 
@@ -40,13 +42,12 @@ CONTAINER_DEFAULTS = dict(
     bash_profile_file='assets/.bash_profile',
     python_version='3.6.4',
     docker_image_name='local_env',
-    docker_image_version='0.0.1',
     container_repo_dir='/usr/git_repos',
     configs_repo_pwd_file='tokens/configs_repo_password',
     karr_lab_repo_root='https://GitHub.com/KarrLab/',
     container_root_dir='/root/',
     container_local_repos='/usr/local_repos/',
-    wc_env_container_name_prefix='wc_env_',
+    wc_env_container_name_prefix='wc_env',
 )
 
 '''
@@ -56,7 +57,6 @@ for k in sec_params:
 import sys
 sys.exit()
 '''
-
 
 class ManageContainer(object):
     """ Manage a Docker container for `wc_env`
@@ -155,11 +155,8 @@ class ManageContainer(object):
                 "to KarrLab/karr_lab_config must be provided.")
         # todo: test credentials against GitHub and the config repo
 
-    def build(self, kwarg_1=None):
-        """ Build a Docker container for `wc_env`
-
-            kwarg_1 (:obj:`type of kwarg_1`, optional): description of kwarg_1
-            ...
+    def create(self):
+        """ create a Docker container for `wc_env`
 
         Returns:
             :obj:`type of return value`: description of return value
@@ -172,15 +169,27 @@ class ManageContainer(object):
         # todo: let user specify the container name
         self.container_name = "{}_{}".format(CONTAINER_DEFAULTS['wc_env_container_name_prefix'],
             datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
-        # create the container
-        self.container = self.docker_client.containers.run("ubuntu", "echo hello world", detach=True)
+        # create the container that shares r/w access to local WC repos
+        env_image = "karrlab/{}:{}".format(self.image_name, self.image_version)
+        # mount wc repo directories in the container
+        volumes_data = {}
+        for local_wc_repo in self.local_wc_repos:
+            # local_wc_repo_basename = os.path.basename(os.path.dirname(local_wc_repo))
+            # container_wc_repo_dir = os.path.join(self.container_repo_dir, local_wc_repo_basename)
+            volumes_data[local_wc_repo] = {'bind': self.container_repo_dir, 'mode': 'rw'}
+        self.container = self.docker_client.containers.run(env_image, command='bash',
+            name=self.container_name,
+            volumes=volumes_data,
+            tty=True,
+            detach=True)
+        print('self.container_name', self.container_name)
+        print("docker attach {}".format(self.container_name))
 
-        # todo: ... with a shared volume of local WC repos
         # load access credentials into the Docker container
         # copy a .gitconfig file into the container
         # use pip to install KarrLab pkg_utils and karr_lab_build_utils in the container
         # clone KarrLab GitHub repos into the container
-        # build a PYTHONPATH for the container with local KarrLab repos ahead of cloned KarrLab repos
+        # create a PYTHONPATH for the container with local KarrLab repos ahead of cloned KarrLab repos
         # copy a custom .bash_profile file into the container
         # attach to the running container
 
@@ -309,6 +318,41 @@ class ManageContainer(object):
         # step 1
         # step 2
         pass
+
+    # utility functions and methods
+    def cp(self, file):
+        """ Copy a file into the `wc_env` Docker container
+
+        Args:
+            file (:obj:`str`): the path of a file to copy into the container
+            dest_dir (:obj:`str`): a directory in the container which will store the copied file
+
+        Returns:
+            :obj:`type of return value`: description of return value
+
+        Raises:
+            :obj:`type of raised exception(s)`: description of raised exceptions
+        """
+        # step 1
+        # step 2
+        pass
+
+    @staticmethod
+    def make_tar(files):
+        """ Make a tar archive for a list of files
+
+        Args:
+            files (:obj:`list` of `str` or `str`): a list of files to write in the tar archive
+
+        Returns:
+            :obj:`tarfile.TarFile`: a tar file containing `files`
+        """
+        tar = tarfile.open(tempfile.TemporaryFile(), "w", format=tarfile.PAX_FORMAT)
+        if not instanceof(files, list):
+            files = [files]
+        for file in files:
+            tar.add(file)
+        return tar
 
 
 class ExampleClass(object):

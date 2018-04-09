@@ -9,11 +9,28 @@
 import unittest
 import tempfile
 import os
+import docker
 
 import wc_env.core
 
 
-# todo: port to Windows
+class ContainerUtils(object):
+
+    FIELDS = 'name status image short_id'.split()
+
+    @staticmethod
+    def header():
+        return ContainerUtils.FIELDS
+
+    @staticmethod
+    def format(container):
+        rv = []
+        for f in ContainerUtils.FIELDS:
+            rv.append(str(getattr(container, f)))
+        return rv
+
+
+# todo: test on and port to Windows
 class TestManageContainer(unittest.TestCase):
 
     def setUp(self):
@@ -22,6 +39,11 @@ class TestManageContainer(unittest.TestCase):
         self.temp_dir_in_home  = tempfile.TemporaryDirectory(dir=os.path.abspath(os.path.expanduser('~/tmp')))
         self.test_dir_in_home = os.path.join('~/tmp', os.path.basename(self.temp_dir_in_home.name))
         self.fixture_repo = os.path.join('tests', 'fixtures', 'fixture_repo')
+        self.docker_client = docker.from_env()
+
+    def tearDown(self):
+        # todo: remove created test containers
+        pass
 
     def test_constructor(self):
         wc_repos = [
@@ -70,6 +92,14 @@ class TestManageContainer(unittest.TestCase):
         with self.assertRaises(wc_env.EnvError) as context:
             manage_container.check_credentials()
 
-    def test_build(self):
-        manage_container = wc_env.ManageContainer([], '0.1')
-        manage_container.build()
+    def test_create(self):
+        manage_container = wc_env.ManageContainer([], '0.0.1')
+        manage_container.create()
+        self.assertEqual(manage_container.container.status, 'created')
+
+        print('\t\t'.join(ContainerUtils.header()))
+        for c in self.docker_client.containers.list(all=True):
+            print('\t\t'.join(ContainerUtils.format(c)))
+
+    def test_make_archive(self):
+        pass
