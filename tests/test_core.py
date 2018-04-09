@@ -9,6 +9,7 @@
 import unittest
 import tempfile
 import os
+import subprocess
 import docker
 
 import wc_env.core
@@ -29,8 +30,13 @@ class ContainerUtils(object):
             rv.append(str(getattr(container, f)))
         return rv
 
+    @staticmethod
+    def list_all():
+        print('\t\t'.join(ContainerUtils.header()))
+        for c in docker.from_env().containers.list(all=True):
+            print('\t\t'.join(ContainerUtils.format(c)))
 
-# todo: test on and port to Windows
+# todo: port to and test on Windows
 class TestManageContainer(unittest.TestCase):
 
     def setUp(self):
@@ -38,12 +44,25 @@ class TestManageContainer(unittest.TestCase):
         self.test_dir = self.temp_dir.name
         self.temp_dir_in_home  = tempfile.TemporaryDirectory(dir=os.path.abspath(os.path.expanduser('~/tmp')))
         self.test_dir_in_home = os.path.join('~/tmp', os.path.basename(self.temp_dir_in_home.name))
-        self.fixture_repo = os.path.join('tests', 'fixtures', 'fixture_repo')
+        self.relative_path_file = os.path.join('tests', 'fixtures', 'relative_path_file.txt')
+        self.absolute_path_file = os.path.join(os.getcwd(), self.relative_path_file)
+        self.MLK_speech = 'I Have a Dream'
+        with open(self.absolute_path_file, 'w') as f:
+            f.write(self.MLK_speech)
         self.docker_client = docker.from_env()
+        self.tmp_containers = []
 
     def tearDown(self):
-        # todo: remove created test containers
-        pass
+        # remove containers created by these tests
+        for container in self.tmp_containers:
+            try:
+                container.remove(force=True)
+            except docker.errors.APIError:
+                pass
+
+    @classmethod
+    def tearDownClass(cls):
+        ContainerUtils.list_all()
 
     def test_constructor(self):
         wc_repos = [
@@ -52,13 +71,13 @@ class TestManageContainer(unittest.TestCase):
             # test full pathname
             self.test_dir,
             # test relative pathname
-            self.fixture_repo
+            self.relative_path_file
         ]
         manage_container = wc_env.ManageContainer(wc_repos, '0.1')
         expected_paths = [
             os.path.join(self.temp_dir_in_home.name, 'repo_dir'),
             self.test_dir,
-            os.path.join(os.getcwd(), self.fixture_repo)
+            self.absolute_path_file
         ]
         for computed_path,expected_path in zip(manage_container.local_wc_repos, expected_paths):
             self.assertEqual(computed_path, expected_path)
@@ -92,14 +111,27 @@ class TestManageContainer(unittest.TestCase):
         with self.assertRaises(wc_env.EnvError) as context:
             manage_container.check_credentials()
 
-    def test_create(self):
+    def create_test_container(self):
         manage_container = wc_env.ManageContainer([], '0.0.1')
         manage_container.create()
+        self.tmp_containers.append(manage_container.container)
+        return manage_container
+
+    def test_create(self):
+        manage_container = self.create_test_container()
         self.assertEqual(manage_container.container.status, 'created')
 
-        print('\t\t'.join(ContainerUtils.header()))
-        for c in self.docker_client.containers.list(all=True):
-            print('\t\t'.join(ContainerUtils.format(c)))
-
-    def test_make_archive(self):
-        pass
+    def test_cp(self):
+        manage_container = wc_env.ManageContainer([], '0.0.1')
+        with self.assertRaises(wc_env.EnvError):
+            manage_container.cp(self.absolute_path_file, '')
+        with self.assertRaises(wc_env.EnvError):
+            manage_container.cp('no such file', '')
+        manage_container = self.create_test_container()
+        with self.assertRaises(subprocess.CalledProcessError):
+            # it is an error if DEST_PATH does not exist and ends with /
+            manage_container.cp(self.absolute_path_file, '/root/tmp/no such dir/')
+        manage_container.cp(self.absolute_path_file,
+            os.path.join('/tmp/', os.path.basename(self.absolute_path_file)))
+        # a hand check shows that cp works
+        # todo: check that self.absolute_path_file is in '/root/tmp'; can try techniques in https://github.com/docker/docker-py/blob/master/tests/integration/api_container_test.py

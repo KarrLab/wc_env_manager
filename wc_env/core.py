@@ -12,7 +12,7 @@ from pathlib import Path
 import tempfile
 import tarfile
 import docker
-
+import subprocess
 
 class Error(Exception):
     """ Base class for exceptions in `wc_env`
@@ -50,13 +50,21 @@ CONTAINER_DEFAULTS = dict(
     wc_env_container_name_prefix='wc_env',
 )
 
-'''
-sec_params = ['configs_repo_username','configs_repo_pwd_file','ssh_key','git_config_file']
-for k in sec_params:
-    print("self.{} = {}".format(k,k))
-import sys
-sys.exit()
-'''
+
+class ManageImage(object):
+    """ Manage a Docker image for `wc_env`
+
+    Attributes:
+        x (:obj:`str`): name of the Docker container being managed
+    """
+
+    def __init__(self, arg1):
+        """
+        Args:
+            arg1 (:obj:`str`): name of the Docker container being managed
+        """
+        pass
+
 
 class ManageContainer(object):
     """ Manage a Docker container for `wc_env`
@@ -90,18 +98,18 @@ class ManageContainer(object):
         git_config_file=CONTAINER_DEFAULTS['git_config_file'],
         verbose=False):
         """
-            Args:
-                local_wc_repos (:obj:`list` of `str`): directories of local KarrLab repos being modified
-                image_version (:obj:`str`): version of the KarrLab Docker image at Docker Hub
-                image_name (:obj:`str`, optional): name of the KarrLab Docker image at Docker Hub
-                python_version (:obj:`str`, optional): Python version to use to set up the container
-                container_repo_dir (:obj:`str`, optional): pathname to dir containing mounted active repos
-                configs_repo_username (:obj:`str`): username for the private repo `KarrLab/karr_lab_config`
-                configs_repo_pwd_file (:obj:`str`): password for the private repo `KarrLab/karr_lab_config`
-                ssh_key (:obj:`str`): the path to a private ssh key file that can access GitHub;
-                    it cannot be protected by a passphrase
-                git_config_file (:obj:`str`): a .gitconfig file that indicates how to access GitHub
-                verbose (:obj:`bool`, optional): if True, produce verbose output
+        Args:
+            local_wc_repos (:obj:`list` of `str`): directories of local KarrLab repos being modified
+            image_version (:obj:`str`): version of the KarrLab Docker image at Docker Hub
+            image_name (:obj:`str`, optional): name of the KarrLab Docker image at Docker Hub
+            python_version (:obj:`str`, optional): Python version to use to set up the container
+            container_repo_dir (:obj:`str`, optional): pathname to dir containing mounted active repos
+            configs_repo_username (:obj:`str`): username for the private repo `KarrLab/karr_lab_config`
+            configs_repo_pwd_file (:obj:`str`): password for the private repo `KarrLab/karr_lab_config`
+            ssh_key (:obj:`str`): the path to a private ssh key file that can access GitHub;
+                it cannot be protected by a passphrase
+            git_config_file (:obj:`str`): a .gitconfig file that indicates how to access GitHub
+            verbose (:obj:`bool`, optional): if True, produce verbose output
         """
         # convert local_wc_repos to full pathnames
         self.local_wc_repos = []
@@ -180,10 +188,9 @@ class ManageContainer(object):
         self.container = self.docker_client.containers.run(env_image, command='bash',
             name=self.container_name,
             volumes=volumes_data,
+            stdin_open=True,
             tty=True,
             detach=True)
-        print('self.container_name', self.container_name)
-        print("docker attach {}".format(self.container_name))
 
         # load access credentials into the Docker container
         # copy a .gitconfig file into the container
@@ -320,22 +327,34 @@ class ManageContainer(object):
         pass
 
     # utility functions and methods
-    def cp(self, file):
-        """ Copy a file into the `wc_env` Docker container
+    def cp(self, path, dest_dir):
+        """ Copy a file or directory into the `wc_env` Docker container
+
+        Use the command `docker cp path dest_dir` to copy path.
+
+        Unfortunately, the Docker API currently (2018-04-09) lacks a cp command
+        (see https://github.com/docker/docker-py/issues/1771). Alternatively, one could write a method
+        that takes a path, builds a temporary tar archive and calls put_archive() to put the archive
+        in the container. Code from the Docker API could be reused for that approach.
 
         Args:
-            file (:obj:`str`): the path of a file to copy into the container
-            dest_dir (:obj:`str`): a directory in the container which will store the copied file
-
-        Returns:
-            :obj:`type of return value`: description of return value
+            path (:obj:`str`): the path of a file or directory to copy into the container
+            dest_dir (:obj:`str`): the container's directory which will store the copied file or directory
 
         Raises:
-            :obj:`type of raised exception(s)`: description of raised exceptions
+            :obj:`EnvError`: if `path` does not exist or `container_name` has not been initialized
+            :obj:`subprocess.CalledProcessError`: if 'docker cp' fails
         """
-        # step 1
-        # step 2
-        pass
+        # check path and self.container_name
+        if not Path(path).exists():
+            raise EnvError("Error: path '{}' does not exist".format(path))
+        if self.container_name is None or not self.container_name:
+            raise EnvError('Error: container_name not initialized')
+        command = ['docker', 'cp', path, '{}:{}'.format(self.container_name, dest_dir)]
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result.stdout = result.stdout.decode('utf-8')
+        result.stderr = result.stderr.decode('utf-8')
+        result.check_returncode()
 
     @staticmethod
     def make_tar(files):
