@@ -8,7 +8,9 @@
 
 import unittest
 import tempfile
+import shutil
 import os
+import stat
 import subprocess
 import docker
 
@@ -66,15 +68,13 @@ class TestManageContainer(unittest.TestCase):
         self.temp_dir_in_home  = \
             tempfile.TemporaryDirectory(dir=os.path.abspath(os.path.expanduser('~/tmp')))
         self.test_dir_in_home = os.path.join('~/tmp', os.path.basename(self.temp_dir_in_home.name))
-        self.test_file_in_home = os.path.join(self.test_dir_in_home, 'test_file_in_home')
-        self.test_file_in_home_content = 'Four score ...\nago our ...'
-        with open(os.path.expanduser(self.test_file_in_home), 'w') as f:
-            f.write(self.test_file_in_home_content)
         self.relative_path_file = os.path.join('tests', 'fixtures', 'relative_path_file.txt')
         self.absolute_path_file = os.path.join(os.getcwd(), self.relative_path_file)
+        self.relative_temp_path = os.path.join('tests', 'tmp')
         self.moving_text = 'I Have a Dream'
         with open(self.absolute_path_file, 'w') as f:
             f.write(self.moving_text)
+        self.sample_repo = os.path.join(os.path.dirname(__file__), 'fixtures', 'sample_repo')
         self.docker_client = docker.from_env()
         self.tmp_containers = []
 
@@ -85,28 +85,46 @@ class TestManageContainer(unittest.TestCase):
                 container.remove(force=True)
             except docker.errors.APIError:
                 pass
+        # remove relative temp files
+        shutil.rmtree(self.relative_temp_path, ignore_errors=True)
 
+    '''
     @classmethod
     def tearDownClass(cls):
         DockerUtils.list_all()
+    '''
+
+    def make_test_repo(self, relative_path):
+        # copy contents of self.sample_repo to a test repo at `relative_path`
+        test_repo = os.path.abspath(os.path.expanduser(relative_path))
+        shutil.copytree(self.sample_repo, test_repo)
 
     def test_constructor(self):
-        wc_repos = [
+        test_wc_repos = [
             # test path in home dir
-            os.path.join(self.test_dir_in_home, 'repo_dir'),
+            os.path.join(self.test_dir_in_home, 'repo_a'),
             # test full pathname
-            self.test_dir,
+            os.path.join(self.test_dir, 'repo_b'),
             # test relative pathname
-            self.relative_path_file
+            os.path.join(self.relative_temp_path, 'repo_c')
         ]
-        manage_container = wc_env.ManageContainer(wc_repos, '0.1')
+        for test_wc_repo in test_wc_repos:
+            self.make_test_repo(test_wc_repo)
+        manage_container = wc_env.ManageContainer(test_wc_repos, '0.1')
         expected_paths = [
-            os.path.join(self.temp_dir_in_home.name, 'repo_dir'),
-            self.test_dir,
-            self.absolute_path_file
+            os.path.join(self.temp_dir_in_home.name, 'repo_a'),
+            os.path.join(self.test_dir, 'repo_b'),
+            os.path.join(os.getcwd(), self.relative_temp_path, 'repo_c')
         ]
         for computed_path,expected_path in zip(manage_container.local_wc_repos, expected_paths):
             self.assertEqual(computed_path, expected_path)
+        with self.assertRaises(wc_env.EnvError):
+            wc_env.ManageContainer([self.absolute_path_file], '0.1')
+        repo_a = os.path.join(self.temp_dir_in_home.name, 'repo_a')
+        os.chmod(repo_a, 0)
+        with self.assertRaises(wc_env.EnvError):
+            wc_env.ManageContainer([repo_a], '0.1')
+        os.chmod(repo_a, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
     def do_check_credentials(self, test_configs_repo_pwd_file, expected):
         # check ManageContainer.check_credentials()
@@ -137,14 +155,38 @@ class TestManageContainer(unittest.TestCase):
                 configs_repo_pwd_file=test_no_such_file, ssh_key=test_no_such_file)
 
     def test_create(self):
+        # test volume sharing
+        '''
         manage_container = wc_env.ManageContainer([], '0.0.1',
-            # ssh_key=self.test_file_in_home,
-            git_config_file=self.test_file_in_home
-            )
+            ssh_key=test_ssh_key,
+            git_config_file=test_git_config_file)
         manage_container.create()
+        self.tmp_containers.append(manage_container.container)
+
         self.assertEqual(manage_container.container.status, 'created')
+        '''
+
+        # test file copying
+        test_ssh_key = os.path.join(self.test_dir_in_home, 'test_ssh_key')
+        test_ssh_key_content = 'Four score ...\nago our ...'
+        with open(os.path.expanduser(test_ssh_key), 'w') as f:
+            f.write(test_ssh_key_content)
+        with open(os.path.expanduser(test_ssh_key+'.pub'), 'w') as f:
+            f.write(test_ssh_key_content+'.pub')
+        test_git_config_file = os.path.join('tests', 'fixtures', '.gitconfig')
+
+        manage_container = wc_env.ManageContainer([], '0.0.1',
+            ssh_key=test_ssh_key,
+            git_config_file=test_git_config_file)
+        manage_container.create()
+        self.tmp_containers.append(manage_container.container)
+
+        self.assertEqual(DockerUtils.get_file(manage_container.container, '/root/.ssh/id_rsa'),
+            test_ssh_key_content)
+        self.assertEqual(DockerUtils.get_file(manage_container.container, '/root/.ssh/id_rsa.pub'),
+            test_ssh_key_content+'.pub')
         self.assertEqual(DockerUtils.get_file(manage_container.container, '/root/.gitconfig'),
-            self.test_file_in_home_content)
+            ''.join(open(test_git_config_file, 'r').readlines()))
 
     def create_test_container(self):
         manage_container = wc_env.ManageContainer([], '0.0.1')

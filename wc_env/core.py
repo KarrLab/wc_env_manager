@@ -110,11 +110,21 @@ class ManageContainer(object):
                 it cannot be protected by a passphrase
             git_config_file (:obj:`str`): a .gitconfig file that indicates how to access GitHub
             verbose (:obj:`bool`, optional): if True, produce verbose output
+
+        Raises:
+            :obj:`EnvError`: if any local_wc_repos are not readable directories
         """
-        # convert local_wc_repos to full pathnames
+        # resolve local_wc_repos as absolute paths
         self.local_wc_repos = []
+        errors = []
         for local_wc_repo_dir in local_wc_repos:
-            self.local_wc_repos.append(os.path.abspath(os.path.expanduser(local_wc_repo_dir)))
+            path = os.path.abspath(os.path.expanduser(local_wc_repo_dir))
+            if not(os.access(path, os.R_OK) and Path(path).is_dir()):
+                errors.append(local_wc_repo_dir)
+            self.local_wc_repos.append(path)
+        if errors:
+            raise EnvError("local WC repo dir(s) '{}' are not readable directories".format(', '.join(errors)))
+
         self.image_version = image_version
         self.image_name = image_name
         self.python_version = python_version
