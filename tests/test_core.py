@@ -15,26 +15,47 @@ import docker
 import wc_env.core
 
 
-class ContainerUtils(object):
+class DockerUtils(object):
 
     FIELDS = 'name status image short_id'.split()
 
     @staticmethod
     def header():
-        return ContainerUtils.FIELDS
+        return DockerUtils.FIELDS
 
     @staticmethod
     def format(container):
         rv = []
-        for f in ContainerUtils.FIELDS:
+        for f in DockerUtils.FIELDS:
             rv.append(str(getattr(container, f)))
         return rv
 
     @staticmethod
     def list_all():
-        print('\t\t'.join(ContainerUtils.header()))
+        print('\t\t'.join(DockerUtils.header()))
         for c in docker.from_env().containers.list(all=True):
-            print('\t\t'.join(ContainerUtils.format(c)))
+            print('\t\t'.join(DockerUtils.format(c)))
+
+    @staticmethod
+    def get_file(container, file):
+        """ get contents of a file in a container
+
+        Args:
+            container (:obj:`type of arg_1`): a Docker container
+            file (:obj:`str`): path to a file in `container`
+
+        Returns:
+            :obj:`str`: the contents of `file` in `container`
+
+        Raises:
+            :obj:`docker.errors.APIError`: if `container.exec_run` raises an error
+        """
+        exit_code, output = container.exec_run(['cat', file])
+        if exit_code==0:
+            return output.decode('utf-8')
+        else:
+            raise wc_env.EnvError("cat {} fails".format(file))
+
 
 # todo: port to and test on Windows
 class TestManageContainer(unittest.TestCase):
@@ -42,13 +63,18 @@ class TestManageContainer(unittest.TestCase):
     def setUp(self):
         self.temp_dir  = tempfile.TemporaryDirectory()
         self.test_dir = self.temp_dir.name
-        self.temp_dir_in_home  = tempfile.TemporaryDirectory(dir=os.path.abspath(os.path.expanduser('~/tmp')))
+        self.temp_dir_in_home  = \
+            tempfile.TemporaryDirectory(dir=os.path.abspath(os.path.expanduser('~/tmp')))
         self.test_dir_in_home = os.path.join('~/tmp', os.path.basename(self.temp_dir_in_home.name))
+        self.test_file_in_home = os.path.join(self.test_dir_in_home, 'test_file_in_home')
+        self.test_file_in_home_content = 'Four score ...\nago our ...'
+        with open(os.path.expanduser(self.test_file_in_home), 'w') as f:
+            f.write(self.test_file_in_home_content)
         self.relative_path_file = os.path.join('tests', 'fixtures', 'relative_path_file.txt')
         self.absolute_path_file = os.path.join(os.getcwd(), self.relative_path_file)
-        self.MLK_speech = 'I Have a Dream'
+        self.moving_text = 'I Have a Dream'
         with open(self.absolute_path_file, 'w') as f:
-            f.write(self.MLK_speech)
+            f.write(self.moving_text)
         self.docker_client = docker.from_env()
         self.tmp_containers = []
 
@@ -62,7 +88,7 @@ class TestManageContainer(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        ContainerUtils.list_all()
+        DockerUtils.list_all()
 
     def test_constructor(self):
         wc_repos = [
@@ -106,20 +132,25 @@ class TestManageContainer(unittest.TestCase):
         self.do_check_credentials(test_no_such_file, None)
 
         # no credentials
-        manage_container = wc_env.ManageContainer([], '0.1',
-            configs_repo_pwd_file=test_no_such_file, ssh_key=test_no_such_file)
-        with self.assertRaises(wc_env.EnvError) as context:
-            manage_container.check_credentials()
+        with self.assertRaises(wc_env.EnvError):
+            manage_container = wc_env.ManageContainer([], '0.1',
+                configs_repo_pwd_file=test_no_such_file, ssh_key=test_no_such_file)
+
+    def test_create(self):
+        manage_container = wc_env.ManageContainer([], '0.0.1',
+            # ssh_key=self.test_file_in_home,
+            git_config_file=self.test_file_in_home
+            )
+        manage_container.create()
+        self.assertEqual(manage_container.container.status, 'created')
+        self.assertEqual(DockerUtils.get_file(manage_container.container, '/root/.gitconfig'),
+            self.test_file_in_home_content)
 
     def create_test_container(self):
         manage_container = wc_env.ManageContainer([], '0.0.1')
         manage_container.create()
         self.tmp_containers.append(manage_container.container)
         return manage_container
-
-    def test_create(self):
-        manage_container = self.create_test_container()
-        self.assertEqual(manage_container.container.status, 'created')
 
     def test_cp(self):
         manage_container = wc_env.ManageContainer([], '0.0.1')
@@ -131,7 +162,7 @@ class TestManageContainer(unittest.TestCase):
         with self.assertRaises(subprocess.CalledProcessError):
             # it is an error if DEST_PATH does not exist and ends with /
             manage_container.cp(self.absolute_path_file, '/root/tmp/no such dir/')
-        manage_container.cp(self.absolute_path_file,
-            os.path.join('/tmp/', os.path.basename(self.absolute_path_file)))
-        # a hand check shows that cp works
-        # todo: check that self.absolute_path_file is in '/root/tmp'; can try techniques in https://github.com/docker/docker-py/blob/master/tests/integration/api_container_test.py
+        path_in_container = os.path.join('/tmp/', os.path.basename(self.absolute_path_file))
+        manage_container.cp(self.absolute_path_file, path_in_container)
+        self.assertEqual(DockerUtils.get_file(manage_container.container, path_in_container),
+            self.moving_text)

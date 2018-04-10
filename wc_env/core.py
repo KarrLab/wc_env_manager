@@ -124,20 +124,14 @@ class ManageContainer(object):
         self.ssh_key = ssh_key
         self.git_config_file = git_config_file
         self.verbose = verbose
-        self.docker_client = docker.from_env()
+        # todo: use self.verbose and logging
         self.container = None
         self.container_name = None
+        self.docker_client = docker.from_env()
+        self.check_credentials()
 
     def check_credentials(self):
         """ Validate the credentials needed in a Docker container for `wc_env`
-
-        Args:
-            arg_1 (:obj:`type of arg_1`): description of arg_1
-            kwarg_1 (:obj:`type of kwarg_1`, optional): description of kwarg_1
-            ...
-
-        Returns:
-            :obj:`type of return value`: description of return value
 
         Raises:
             :obj:`EnvError`: if the credentials are incomplete or incorrect
@@ -146,8 +140,9 @@ class ManageContainer(object):
         credential_file_attrs = ['configs_repo_pwd_file', 'ssh_key', 'git_config_file']
         for attr in credential_file_attrs:
             file = getattr(self, attr)
-            file = os.path.expanduser(file)
-            path = os.path.abspath(file)
+            if file is None:
+                continue
+            path = os.path.abspath(os.path.expanduser(file))
             if Path(path).is_file():
                 try:
                     open(path, 'r')
@@ -161,6 +156,7 @@ class ManageContainer(object):
         if self.configs_repo_pwd_file is None and self.ssh_key is None:
             raise EnvError("No credentials available: either an ssh key or the password "
                 "to KarrLab/karr_lab_config must be provided.")
+
         # todo: test credentials against GitHub and the config repo
 
     def create(self):
@@ -193,7 +189,15 @@ class ManageContainer(object):
             detach=True)
 
         # load access credentials into the Docker container
-        # copy a .gitconfig file into the container
+        if self.ssh_key:
+            self.cp(self.ssh_key, '/root/.ssh/id_rsa')
+            self.cp(self.ssh_key+'.pub', '/root/.ssh/id_rsa.pub')
+            exit_code, output = self.container.exec_run("bash ssh-keyscan github.com >> /root/.ssh/known_hosts".split())
+
+        if self.git_config_file:
+            # copy a .gitconfig file into the home directory of root in the container
+            self.cp(self.git_config_file, '/root/.gitconfig')
+
         # use pip to install KarrLab pkg_utils and karr_lab_build_utils in the container
         # clone KarrLab GitHub repos into the container
         # create a PYTHONPATH for the container with local KarrLab repos ahead of cloned KarrLab repos
@@ -343,7 +347,7 @@ class ManageContainer(object):
 
         Raises:
             :obj:`EnvError`: if `path` does not exist or `container_name` has not been initialized
-            :obj:`subprocess.CalledProcessError`: if 'docker cp' fails
+            :obj:`subprocess.CalledProcessError`: if 'docker cp' fails; see error conditions in the docker documentation
         """
         # check path and self.container_name
         if not Path(path).exists():
