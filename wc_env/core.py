@@ -14,6 +14,7 @@ import tarfile
 import docker
 import subprocess
 
+
 class Error(Exception):
     """ Base class for exceptions in `wc_env`
 
@@ -116,6 +117,7 @@ class ManageContainer(object):
         """
         # resolve local_wc_repos as absolute paths
         self.local_wc_repos = []
+        # todo: cannot have multiple repos with the same name
         errors = []
         for local_wc_repo_dir in local_wc_repos:
             path = os.path.abspath(os.path.expanduser(local_wc_repo_dir))
@@ -176,7 +178,7 @@ class ManageContainer(object):
             :obj:`type of return value`: description of return value
 
         Raises:
-            :obj:`type of raised exception(s)`: description of raised exceptions
+            :obj:`docker.errors.APIError`: description of raised exceptions
         """
         # todo after image stored on Hub: pull the Docker wc_env image from Docker Hub
         # create a unique container name
@@ -188,15 +190,19 @@ class ManageContainer(object):
         # mount wc repo directories in the container
         volumes_data = {}
         for local_wc_repo in self.local_wc_repos:
-            # local_wc_repo_basename = os.path.basename(os.path.dirname(local_wc_repo))
-            # container_wc_repo_dir = os.path.join(self.container_repo_dir, local_wc_repo_basename)
-            volumes_data[local_wc_repo] = {'bind': self.container_repo_dir, 'mode': 'rw'}
-        self.container = self.docker_client.containers.run(env_image, command='bash',
-            name=self.container_name,
-            volumes=volumes_data,
-            stdin_open=True,
-            tty=True,
-            detach=True)
+            local_wc_repo_basename = os.path.basename(local_wc_repo)
+            container_wc_repo_dir = os.path.join(self.container_repo_dir, local_wc_repo_basename)
+            volumes_data[local_wc_repo] = {'bind': container_wc_repo_dir, 'mode': 'rw'}
+
+        try:
+            self.container = self.docker_client.containers.run(env_image, command='bash',
+                name=self.container_name,
+                volumes=volumes_data,
+                stdin_open=True,
+                tty=True,
+                detach=True)
+        except Exception as e:
+            raise EnvError("Error: cannot run container: {}".format(e))
 
         # load access credentials into the Docker container
         if self.ssh_key:
@@ -369,23 +375,6 @@ class ManageContainer(object):
         result.stdout = result.stdout.decode('utf-8')
         result.stderr = result.stderr.decode('utf-8')
         result.check_returncode()
-
-    @staticmethod
-    def make_tar(files):
-        """ Make a tar archive for a list of files
-
-        Args:
-            files (:obj:`list` of `str` or `str`): a list of files to write in the tar archive
-
-        Returns:
-            :obj:`tarfile.TarFile`: a tar file containing `files`
-        """
-        tar = tarfile.open(tempfile.TemporaryFile(), "w", format=tarfile.PAX_FORMAT)
-        if not instanceof(files, list):
-            files = [files]
-        for file in files:
-            tar.add(file)
-        return tar
 
 
 class ExampleClass(object):
