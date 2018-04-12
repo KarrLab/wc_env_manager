@@ -13,6 +13,7 @@ import os
 import stat
 import subprocess
 import docker
+from inspect import currentframe, getframeinfo
 
 import wc_env.core
 
@@ -53,10 +54,12 @@ class DockerUtils(object):
             :obj:`docker.errors.APIError`: if `container.exec_run` raises an error
         """
         exit_code, output = container.exec_run(['cat', file])
+        frameinfo = getframeinfo(currentframe())
         if exit_code==0:
             return output.decode('utf-8')
         else:
-            raise wc_env.EnvError("cat {} fails".format(file))
+            raise wc_env.EnvError("{}:{}: cat {} fails with exit_code {}".format(frameinfo.filename,
+                frameinfo.lineno, file, exit_code))
 
     @staticmethod
     def cmp_files(testcase, container, container_filename, host_file_content=None, host_filename=None):
@@ -88,9 +91,9 @@ class DockerUtils(object):
 class TestManageContainer(unittest.TestCase):
 
     def setUp(self):
-        # put in temp dir in /private/tmp which can contain a Docker volume by default
         # todo: make this OS portable
         # use mkdtemp() instead of TemporaryDirectory() so files can survive testing for debugging container
+        # put in temp dir in /private/tmp which can contain a Docker volume by default
         self.test_dir = tempfile.mkdtemp(dir='/private/tmp')
         self.temp_dir_in_home  = \
             tempfile.mkdtemp(dir=os.path.abspath(os.path.expanduser('~/tmp')))
@@ -197,6 +200,7 @@ class TestManageContainer(unittest.TestCase):
         manage_container = wc_env.ManageContainer(self.test_wc_repos, '0.0.1')
         container = manage_container.create()
         self.tmp_container_managers.append(manage_container)
+        # print("docker attach {}".format(container.name))
         # spot-check files in the 3 repos in the container
         for local_wc_repo in manage_container.local_wc_repos:
             container_wc_repo_dir = os.path.join(manage_container.container_repo_dir,

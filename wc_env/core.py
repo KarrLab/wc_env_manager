@@ -46,7 +46,7 @@ CONTAINER_DEFAULTS = dict(
     container_repo_dir='/usr/git_repos',
     configs_repo_pwd_file='tokens/configs_repo_password',
     karr_lab_repo_root='https://GitHub.com/KarrLab/',
-    container_root_dir='/root/',
+    container_user_home_dir='/root/',
     container_local_repos='/usr/local_repos/',
     wc_env_container_name_prefix='wc_env',
 )
@@ -76,6 +76,7 @@ class ManageContainer(object):
         image_name (:obj:`str`): name of the KarrLab Docker image at Docker Hub
         python_version (:obj:`str`): Python version to use to set up the container
         container_repo_dir (:obj:`str`): pathname to dir containing mounted active repos
+        container_user_home_dir (:obj:`str`): pathname to home dir of container user
         configs_repo_username (:obj:`str`): username for the private repo `KarrLab/karr_lab_config`
         configs_repo_pwd_file (:obj:`str`): password for the private repo `KarrLab/karr_lab_config`
         ssh_key (:obj:`str`): the path to a private ssh key file that can access GitHub;
@@ -94,6 +95,7 @@ class ManageContainer(object):
         image_name=CONTAINER_DEFAULTS['docker_image_name'],
         python_version=CONTAINER_DEFAULTS['python_version'],
         container_repo_dir=CONTAINER_DEFAULTS['container_repo_dir'],
+        container_user_home_dir=CONTAINER_DEFAULTS['container_user_home_dir'],
         configs_repo_username=CONTAINER_DEFAULTS['configs_repo_username'],
         configs_repo_pwd_file=CONTAINER_DEFAULTS['configs_repo_pwd_file'],
         ssh_key=CONTAINER_DEFAULTS['ssh_key'],
@@ -106,6 +108,7 @@ class ManageContainer(object):
             image_name (:obj:`str`, optional): name of the KarrLab Docker image at Docker Hub
             python_version (:obj:`str`, optional): Python version to use to set up the container
             container_repo_dir (:obj:`str`, optional): pathname to dir containing mounted active repos
+            container_user_home_dir (:obj:`str`, optional): pathname to home dir of container user
             configs_repo_username (:obj:`str`): username for the private repo `KarrLab/karr_lab_config`
             configs_repo_pwd_file (:obj:`str`): password for the private repo `KarrLab/karr_lab_config`
             ssh_key (:obj:`str`): the path to a private ssh key file that can access GitHub;
@@ -132,6 +135,7 @@ class ManageContainer(object):
         self.image_name = image_name
         self.python_version = python_version
         self.container_repo_dir = container_repo_dir
+        self.container_user_home_dir = container_user_home_dir
         self.configs_repo_username = configs_repo_username
         self.configs_repo_pwd_file = configs_repo_pwd_file
         self.ssh_key = ssh_key
@@ -207,13 +211,17 @@ class ManageContainer(object):
 
         # load access credentials into the Docker container
         if self.ssh_key:
-            self.cp(self.ssh_key, '/root/.ssh/id_rsa')
-            self.cp(self.ssh_key+'.pub', '/root/.ssh/id_rsa.pub')
-            exit_code, output = self.container.exec_run("bash ssh-keyscan github.com >> /root/.ssh/known_hosts".split())
+            self.cp(self.ssh_key, os.path.join(self.container_user_home_dir, '.ssh/id_rsa'))
+            self.cp(self.ssh_key+'.pub', os.path.join(self.container_user_home_dir, '.ssh/id_rsa.pub'))
+            cmd = "ssh-keyscan github.com >> {}".format(os.path.join(self.container_user_home_dir, '.ssh/known_hosts'))
+            exit_code, _ = self.container.exec_run(cmd.split())
+            if exit_code!=0:    # pragma: no cover     # not testing containers which would make this failure
+                print("{}: '{}' receives exit_code {}".format(__file__, cmd, exit_code))
+                # raise EnvError("container.exec_run({})".format(cmd))
 
         if self.git_config_file:
             # copy a .gitconfig file into the home directory of root in the container
-            self.cp(self.git_config_file, '/root/.gitconfig')
+            self.cp(self.git_config_file, os.path.join(self.container_user_home_dir, '.gitconfig'))
 
         # use pip to install KarrLab pkg_utils and karr_lab_build_utils in the container
         # clone KarrLab GitHub repos into the container
