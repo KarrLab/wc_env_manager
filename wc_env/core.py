@@ -83,7 +83,8 @@ class ManageContainer(object):
         git_config_file (:obj:`str`): a .gitconfig file that indicates how to access GitHub
         verbose (:obj:`bool`): if True, produce verbose output
         docker_client (:obj:`docker.client.DockerClient`): client connected to the docker daemon
-        container (:obj:`Container`): the Docker container being managed
+        container (:obj:`docker.models.containers.Container`): the Docker container being managed
+        volumes (:obj:`dict`): the specification of the volumes used by the Docker container being managed
         container_name (:obj:`str`): name of the Docker container being managed
     """
 
@@ -172,10 +173,10 @@ class ManageContainer(object):
         # todo: test credentials against GitHub and the config repo
 
     def create(self):
-        """ create a Docker container for `wc_env`
+        """ Create a Docker container for `wc_env`
 
         Returns:
-            :obj:`type of return value`: description of return value
+            :obj:`docker.models.containers.Container`): the container created
 
         Raises:
             :obj:`docker.errors.APIError`: description of raised exceptions
@@ -188,16 +189,16 @@ class ManageContainer(object):
         # create the container that shares r/w access to local WC repos
         env_image = "karrlab/{}:{}".format(self.image_name, self.image_version)
         # mount wc repo directories in the container
-        volumes_data = {}
+        self.volumes = {}
         for local_wc_repo in self.local_wc_repos:
             local_wc_repo_basename = os.path.basename(local_wc_repo)
             container_wc_repo_dir = os.path.join(self.container_repo_dir, local_wc_repo_basename)
-            volumes_data[local_wc_repo] = {'bind': container_wc_repo_dir, 'mode': 'rw'}
+            self.volumes[local_wc_repo] = {'bind': container_wc_repo_dir, 'mode': 'rw'}
 
         try:
             self.container = self.docker_client.containers.run(env_image, command='bash',
                 name=self.container_name,
-                volumes=volumes_data,
+                volumes=self.volumes,
                 stdin_open=True,
                 tty=True,
                 detach=True)
@@ -218,7 +219,7 @@ class ManageContainer(object):
         # clone KarrLab GitHub repos into the container
         # create a PYTHONPATH for the container with local KarrLab repos ahead of cloned KarrLab repos
         # copy a custom .bash_profile file into the container
-        # attach to the running container
+        return self.container
 
     def run(self, arg_1, arg_2, kwarg_1=None, kwarg_2=None):
         """ Run a Docker container for `wc_env`

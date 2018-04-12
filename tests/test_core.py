@@ -43,7 +43,7 @@ class DockerUtils(object):
         """ get contents of a file in a container
 
         Args:
-            container (:obj:`docker.models.containers.container`): a Docker container
+            container (:obj:`docker.models.containers.Container`): a Docker container
             file (:obj:`str`): path to a file in `container`
 
         Returns:
@@ -67,7 +67,7 @@ class DockerUtils(object):
 
         Args:
             testcase (:obj:`testcase.TestCase`): testcase being run
-            container (:obj:`docker.models.containers.container`): Docker container storing `container_filename`
+            container (:obj:`docker.models.containers.Container`): Docker container storing `container_filename`
             container_filename (:obj:`str`): pathname of file in `container`
             host_file_content (:obj:`str`, optional): content of host file being compared
             host_filename (:obj:`str`, optional): pathname of host file being compared
@@ -97,7 +97,7 @@ class TestManageContainer(unittest.TestCase):
         self.test_dir_in_home = os.path.join('~/tmp', os.path.basename(self.temp_dir_in_home))
         self.relative_path_file = os.path.join('tests', 'fixtures', 'relative_path_file.txt')
         self.absolute_path_file = os.path.join(os.getcwd(), self.relative_path_file)
-        self.relative_temp_path = os.path.join('tests', 'tmp')
+        self.relative_temp_path = tempfile.mkdtemp(dir=os.path.join('tests', 'tmp'))
         self.moving_text = 'I Have a Dream'
         with open(self.absolute_path_file, 'w') as f:
             f.write(self.moving_text)
@@ -115,19 +115,22 @@ class TestManageContainer(unittest.TestCase):
             self.make_test_repo(test_wc_repo)
 
         self.docker_client = docker.from_env()
-        self.tmp_containers = []
+        # ManageContainers with created containers that need to be removed
+        self.tmp_container_managers = []
 
     def tearDown(self):
         # remove containers created by these tests
-        for container in self.tmp_containers:
+        for container_manager in self.tmp_container_managers:
+            container = container_manager.container
             try:
-                container.remove(force=True)
-            except docker.errors.APIError:
-                pass
+                container.stop()
+                container.remove(v=True)
+            except docker.errors.APIError as e:
+                print("docker.errors.APIError: {}".format(e), file=sys.stderr)
         # remove temp files
         remove_temp_files = True
         if remove_temp_files:
-            shutil.rmtree(self.relative_temp_path, ignore_errors=True)
+            shutil.rmtree(self.relative_temp_path)
             shutil.rmtree(self.test_dir)
             shutil.rmtree(self.temp_dir_in_home)
 
@@ -192,10 +195,8 @@ class TestManageContainer(unittest.TestCase):
     def test_create_volume_sharing(self):
         # test volume sharing
         manage_container = wc_env.ManageContainer(self.test_wc_repos, '0.0.1')
-        manage_container.create()
-        container = manage_container.container
-        self.tmp_containers.append(container)
-        # print('docker attach', container.name)
+        container = manage_container.create()
+        self.tmp_container_managers.append(manage_container)
         # spot-check files in the 3 repos in the container
         for local_wc_repo in manage_container.local_wc_repos:
             container_wc_repo_dir = os.path.join(manage_container.container_repo_dir,
@@ -220,19 +221,19 @@ class TestManageContainer(unittest.TestCase):
         manage_container = wc_env.ManageContainer([], '0.0.1',
             ssh_key=test_ssh_key,
             git_config_file=test_git_config_file)
-        manage_container.create()
-        self.tmp_containers.append(manage_container.container)
+        container = manage_container.create()
+        self.tmp_container_managers.append(manage_container)
 
-        DockerUtils.cmp_files(self, manage_container.container, '/root/.ssh/id_rsa', host_filename=test_ssh_key)
-        DockerUtils.cmp_files(self, manage_container.container, '/root/.ssh/id_rsa.pub',
+        DockerUtils.cmp_files(self, container, '/root/.ssh/id_rsa', host_filename=test_ssh_key)
+        DockerUtils.cmp_files(self, container, '/root/.ssh/id_rsa.pub',
             host_file_content=test_ssh_key_content+'.pub')
-        DockerUtils.cmp_files(self, manage_container.container, '/root/.gitconfig',
+        DockerUtils.cmp_files(self, container, '/root/.gitconfig',
             host_filename=test_git_config_file)
 
     def create_test_container(self):
         manage_container = wc_env.ManageContainer([], '0.0.1')
         manage_container.create()
-        self.tmp_containers.append(manage_container.container)
+        self.tmp_container_managers.append(manage_container)
         return manage_container
 
     def test_cp(self):
