@@ -197,6 +197,8 @@ class ManageContainer(object):
 
         # create the container that shares r/w access to local WC repos
         env_image = "karrlab/{}:{}".format(self.image_name, self.image_version)
+
+        # todo: use pp_to_karr_lab_repos
         # mount wc repo directories in the container
         self.volumes = {}
         for local_wc_repo in self.local_wc_repos:
@@ -360,24 +362,6 @@ class ManageContainer(object):
         # step 2
         pass
 
-    def revise(self, arg_1, arg_2, kwarg_1=None, kwarg_2=None):
-        """ Revise a `wc_env` Docker container
-
-        Args:
-            arg_1 (:obj:`type of arg_1`): description of arg_1
-            kwarg_1 (:obj:`type of kwarg_1`, optional): description of kwarg_1
-            ...
-
-        Returns:
-            :obj:`type of return value`: description of return value
-
-        Raises:
-            :obj:`type of raised exception(s)`: description of raised exceptions
-        """
-        # step 1
-        # step 2
-        pass
-
     def refresh(self, arg_1, arg_2, kwarg_1=None, kwarg_2=None):
         """ Refresh a `wc_env` Docker container
 
@@ -458,42 +442,3 @@ class ManageContainer(object):
         # :todo: get these repos programatically
         ALL_WC_REPOS='wc_lang wc_sim wc_utils obj_model wc_kb kinetic_datanator wc_rules'
         return ALL_WC_REPOS.split()
-
-class ExampleClass(object):
-    """ Descipton of ExampleClass
-
-    Attributes:
-        attr_1 (:obj:`type of attr_1`): description of attr_1
-        attr_2 (:obj:`type of attr_2`): description of attr_2
-        ...
-    """
-
-    def __init__(self, arg_1, arg_2, kwarg_1=None, kwarg_2=None):
-        """
-        Args:
-            arg_1 (:obj:`type of arg_1`): description of arg_1
-            arg_2 (:obj:`type of arg_2`): description of arg_2
-            kwarg_1 (:obj:`type of kwarg_1`, optional): description of kwarg_1
-            kwarg_2 (:obj:`type of kwarg_2`, optional): description of kwarg_2
-            ...
-        """
-        self.attr_1 = arg_1
-        self.attr_2 = arg_2
-
-    def method_1(self, arg_1, arg_2, kwarg_1=None, kwarg_2=None):
-        """ Description of method_1
-
-        Args:
-            arg_1 (:obj:`type of arg_1`): description of arg_1
-            arg_2 (:obj:`type of arg_2`): description of arg_2
-            kwarg_1 (:obj:`type of kwarg_1`, optional): description of kwarg_1
-            kwarg_2 (:obj:`type of kwarg_2`, optional): description of kwarg_2
-            ...
-
-        Returns:
-            :obj:`type of return value`: description of return value
-
-        Raises:
-            :obj:`type of raised exception(s)`: description of raised exceptions
-        """
-        pass
