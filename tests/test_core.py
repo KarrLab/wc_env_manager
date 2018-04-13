@@ -204,9 +204,9 @@ class TestManageContainer(unittest.TestCase):
         for local_wc_repo in manage_container.local_wc_repos:
             container_wc_repo_dir = os.path.join(manage_container.container_repo_dir,
                 os.path.basename(local_wc_repo))
-            container_core_py_file = os.path.join(container_wc_repo_dir, 'wc_env/core.py')
+            container_core_py_file = os.path.join(container_wc_repo_dir, 'tests/requirements.txt')
             DockerUtils.cmp_files(self, container, container_core_py_file,
-                host_filename=os.path.join(self.sample_repo, 'wc_env/core.py'))
+                host_filename=os.path.join(self.sample_repo, 'tests/requirements.txt'))
             container_REPO_NAME_file = os.path.join(container_wc_repo_dir, 'REPO_NAME')
             DockerUtils.cmp_files(self, container, container_REPO_NAME_file,
                 host_file_content=os.path.basename(local_wc_repo))
