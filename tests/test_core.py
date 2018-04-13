@@ -250,12 +250,17 @@ class TestManageContainer(unittest.TestCase):
 
     def test_load_karr_lab_tools(self):
         manage_container = self.make_container()
-        manage_container.load_karr_lab_tools()
-        try:
-            # test karr_lab_build_utils
-            self.assertIn('karr_lab_build_utils', manage_container.exec_run("karr_lab_build_utils -h"))
-        except Exception as e:
-            self.fail('Exception thrown by exec_run("karr_lab_build_utils -h") {}'.format(e))
+        with CaptureOutput() as capturer:
+            manage_container.load_karr_lab_tools()
+            try:
+                # test karr_lab_build_utils
+                self.assertIn('karr_lab_build_utils', manage_container.exec_run("karr_lab_build_utils -h"))
+            except Exception as e:
+                self.fail('Exception thrown by exec_run("karr_lab_build_utils -h") {}'.format(e))
+            expected_output = ['pip install pkg_utils --',
+                'pip install karr_lab_build_utils --',]
+            for line in expected_output:
+                self.assertIn(line, capturer.get_text())
 
     def test_clone_karr_lab_repos(self):
         manage_container = self.make_container()
