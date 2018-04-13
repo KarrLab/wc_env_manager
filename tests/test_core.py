@@ -58,8 +58,9 @@ class DockerUtils(object):
         if exit_code==0:
             return output.decode('utf-8')
         else:
-            raise wc_env.EnvError("{}:{}: cat {} fails with exit_code {}".format(frameinfo.filename,
-                frameinfo.lineno, file, exit_code))
+            raise wc_env.EnvError("{}:{}: cat {} fails with exit_code {} "
+                "this is a Docker system race condition; rerun test".format(
+                frameinfo.filename, frameinfo.lineno, file, exit_code))
 
     @staticmethod
     def cmp_files(testcase, container, container_filename, host_file_content=None, host_filename=None):
@@ -195,12 +196,10 @@ class TestManageContainer(unittest.TestCase):
             manage_container = wc_env.ManageContainer([], '0.1',
                 configs_repo_pwd_file=test_no_such_file, ssh_key=test_no_such_file)
 
-    def test_create_volume_sharing(self):
-        # test volume sharing
-        manage_container = wc_env.ManageContainer(self.test_wc_repos, '0.0.1')
+    def test_create(self):
+        # test ManageContainer.create()
+        manage_container = self.make_container(wc_repos=self.test_wc_repos)
         container = manage_container.create()
-        self.tmp_container_managers.append(manage_container)
-        # print("docker attach {}".format(container.name))
         # spot-check files in the 3 repos in the container
         for local_wc_repo in manage_container.local_wc_repos:
             container_wc_repo_dir = os.path.join(manage_container.container_repo_dir,
@@ -211,45 +210,49 @@ class TestManageContainer(unittest.TestCase):
             container_REPO_NAME_file = os.path.join(container_wc_repo_dir, 'REPO_NAME')
             DockerUtils.cmp_files(self, container, container_REPO_NAME_file,
                 host_file_content=os.path.basename(local_wc_repo))
-
-    def test_create_file_copying(self):
-        # test file copying
-        test_ssh_key = os.path.join(self.test_dir_in_home, 'test_ssh_key')
-        test_ssh_key_content = 'Four score ...\nago our ...'
-        with open(os.path.expanduser(test_ssh_key), 'w') as f:
-            f.write(test_ssh_key_content)
-        with open(os.path.expanduser(test_ssh_key+'.pub'), 'w') as f:
-            f.write(test_ssh_key_content+'.pub')
-        test_git_config_file = os.path.join('tests', 'fixtures', '.gitconfig')
-
-        manage_container = wc_env.ManageContainer([], '0.0.1',
-            ssh_key=test_ssh_key,
-            git_config_file=test_git_config_file)
-        container = manage_container.create()
-        self.tmp_container_managers.append(manage_container)
-
-        DockerUtils.cmp_files(self, container, '/root/.ssh/id_rsa', host_filename=test_ssh_key)
-        DockerUtils.cmp_files(self, container, '/root/.ssh/id_rsa.pub',
-            host_file_content=test_ssh_key_content+'.pub')
-        DockerUtils.cmp_files(self, container, '/root/.gitconfig',
-            host_filename=test_git_config_file)
-
-    def create_test_container(self):
-        manage_container = wc_env.ManageContainer([], '0.0.1')
-        manage_container.create()
-        self.tmp_container_managers.append(manage_container)
-        return manage_container
-
-    def test_cp(self):
-        manage_container = wc_env.ManageContainer([], '0.0.1')
-        with self.assertRaises(wc_env.EnvError):
-            manage_container.cp(self.absolute_path_file, '')
-        with self.assertRaises(wc_env.EnvError):
-            manage_container.cp('no such file', '')
-        manage_container = self.create_test_container()
         with self.assertRaises(subprocess.CalledProcessError):
             # it is an error if DEST_PATH does not exist and ends with /
             manage_container.cp(self.absolute_path_file, '/root/tmp/no such dir/')
         path_in_container = os.path.join('/tmp/', os.path.basename(self.absolute_path_file))
         manage_container.cp(self.absolute_path_file, path_in_container)
         DockerUtils.cmp_files(self, manage_container.container, path_in_container, host_file_content=self.moving_text)
+
+    def make_container(self, wc_repos=None, save_container=False):
+        # make a test container
+        # set save_container to save the container for later investigation
+        if wc_repos is None:
+            wc_repos = []
+        manage_container = wc_env.ManageContainer(wc_repos, '0.0.1')
+        container = manage_container.create()
+        if save_container:
+            print("docker attach {}".format(container.name))
+        else:
+            self.tmp_container_managers.append(manage_container)
+        return manage_container
+
+    def test_load_karr_lab_tools(self):
+        manage_container = self.make_container()
+        manage_container.load_karr_lab_tools()
+        # todo: need tests
+
+    def test_clone_karr_lab_repos(self):
+        manage_container = self.make_container()
+        manage_container.clone_karr_lab_repos()
+        kl_repos = manage_container.exec_run('ls {}'.format(manage_container.container_local_repos))
+        kl_repos = set(kl_repos.split('\n'))
+        self.assertTrue(set(wc_env.ALL_WC_REPOS.split()).issubset(kl_repos))
+
+    def test_exec_run(self):
+        manage_container = self.make_container()
+        with self.assertRaises(wc_env.EnvError):
+            manage_container.exec_run('no_such_command x')
+        ls = set(manage_container.exec_run('ls').split('\n'))
+        self.assertTrue(set('usr bin home tmp root etc lib'.split()).issubset(ls))
+
+    def test_cp_exceptions(self):
+        manage_container = wc_env.ManageContainer([], '0.0.1')
+        with self.assertRaises(wc_env.EnvError):
+            manage_container.cp(self.absolute_path_file, '')
+        with self.assertRaises(wc_env.EnvError):
+            manage_container.cp('no such file', '')
+

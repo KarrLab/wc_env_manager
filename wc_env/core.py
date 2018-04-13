@@ -37,7 +37,7 @@ class EnvError(Error):
 
 # :todo: replace with defaults in a config file
 CONTAINER_DEFAULTS = dict(
-    ssh_key='~/.ssh/id_rsa',
+    ssh_key='~/.ssh/id_rsa_github',     # an ssh key that accesses karr_lab_repo_root, and doesn't need a passphrase
     configs_repo_username='karr-lab-daemon-public',
     git_config_file='assets/.gitconfig',
     bash_profile_file='assets/.bash_profile',
@@ -50,6 +50,8 @@ CONTAINER_DEFAULTS = dict(
     container_local_repos='/usr/local_repos/',
     wc_env_container_name_prefix='wc_env',
 )
+# :todo: get repos in ALL_WC_REPOS programatically
+ALL_WC_REPOS='wc_lang wc_sim wc_utils obj_model wc_kb kinetic_datanator wc_rules'
 
 
 class ManageImage(object):
@@ -77,6 +79,7 @@ class ManageContainer(object):
         python_version (:obj:`str`): Python version to use to set up the container
         container_repo_dir (:obj:`str`): pathname to dir containing mounted active repos
         container_user_home_dir (:obj:`str`): pathname to home dir of container user
+        container_local_repos (:obj:`str`): pathname to dir in container with clones of KarrLab repos
         configs_repo_username (:obj:`str`): username for the private repo `KarrLab/karr_lab_config`
         configs_repo_pwd_file (:obj:`str`): password for the private repo `KarrLab/karr_lab_config`
         ssh_key (:obj:`str`): the path to a private ssh key file that can access GitHub;
@@ -96,6 +99,7 @@ class ManageContainer(object):
         python_version=CONTAINER_DEFAULTS['python_version'],
         container_repo_dir=CONTAINER_DEFAULTS['container_repo_dir'],
         container_user_home_dir=CONTAINER_DEFAULTS['container_user_home_dir'],
+        container_local_repos=CONTAINER_DEFAULTS['container_local_repos'],
         configs_repo_username=CONTAINER_DEFAULTS['configs_repo_username'],
         configs_repo_pwd_file=CONTAINER_DEFAULTS['configs_repo_pwd_file'],
         ssh_key=CONTAINER_DEFAULTS['ssh_key'],
@@ -109,6 +113,7 @@ class ManageContainer(object):
             python_version (:obj:`str`, optional): Python version to use to set up the container
             container_repo_dir (:obj:`str`, optional): pathname to dir containing mounted active repos
             container_user_home_dir (:obj:`str`, optional): pathname to home dir of container user
+            container_local_repos (:obj:`str`, optional): pathname to dir in container with clones of KarrLab repos
             configs_repo_username (:obj:`str`): username for the private repo `KarrLab/karr_lab_config`
             configs_repo_pwd_file (:obj:`str`): password for the private repo `KarrLab/karr_lab_config`
             ssh_key (:obj:`str`): the path to a private ssh key file that can access GitHub;
@@ -136,6 +141,7 @@ class ManageContainer(object):
         self.python_version = python_version
         self.container_repo_dir = container_repo_dir
         self.container_user_home_dir = container_user_home_dir
+        self.container_local_repos = container_local_repos
         self.configs_repo_username = configs_repo_username
         self.configs_repo_pwd_file = configs_repo_pwd_file
         self.ssh_key = ssh_key
@@ -190,6 +196,7 @@ class ManageContainer(object):
         # todo: let user specify the container name
         self.container_name = "{}_{}".format(CONTAINER_DEFAULTS['wc_env_container_name_prefix'],
             datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
+
         # create the container that shares r/w access to local WC repos
         env_image = "karrlab/{}:{}".format(self.image_name, self.image_version)
         # mount wc repo directories in the container
@@ -198,7 +205,6 @@ class ManageContainer(object):
             local_wc_repo_basename = os.path.basename(local_wc_repo)
             container_wc_repo_dir = os.path.join(self.container_repo_dir, local_wc_repo_basename)
             self.volumes[local_wc_repo] = {'bind': container_wc_repo_dir, 'mode': 'rw'}
-
         try:
             self.container = self.docker_client.containers.run(env_image, command='bash',
                 name=self.container_name,
@@ -214,38 +220,56 @@ class ManageContainer(object):
             self.cp(self.ssh_key, os.path.join(self.container_user_home_dir, '.ssh/id_rsa'))
             self.cp(self.ssh_key+'.pub', os.path.join(self.container_user_home_dir, '.ssh/id_rsa.pub'))
             cmd = "ssh-keyscan github.com >> {}".format(os.path.join(self.container_user_home_dir, '.ssh/known_hosts'))
-            exit_code, _ = self.container.exec_run(cmd.split())
-            if exit_code!=0:    # pragma: no cover     # not testing containers which would make this failure
-                print("{}: '{}' receives exit_code {}".format(__file__, cmd, exit_code))
-                # raise EnvError("container.exec_run({})".format(cmd))
+            self.exec_run(cmd)
 
         if self.git_config_file:
             # copy a .gitconfig file into the home directory of root in the container
             self.cp(self.git_config_file, os.path.join(self.container_user_home_dir, '.gitconfig'))
-
-        # use pip to install KarrLab pkg_utils and karr_lab_build_utils in the container
-        # clone KarrLab GitHub repos into the container
-        # create a PYTHONPATH for the container with local KarrLab repos ahead of cloned KarrLab repos
-        # copy a custom .bash_profile file into the container
         return self.container
 
-    def run(self, arg_1, arg_2, kwarg_1=None, kwarg_2=None):
+    def load_karr_lab_tools(self):
+        """ Use pip to install KarrLab pkg_utils and karr_lab_build_utils in the container
+
+        Raises:
+            :obj:`EnvError`: if pip commands fail
+        """
+        major,minor,_ = self.python_version.split('.')
+        python_version_major_minor = "{}.{}".format(major, minor)
+        print('pip install pkg_utils --')
+        cmd = "pip{} install -U --process-dependency-links "\
+            "git+https://github.com/KarrLab/pkg_utils.git#egg=pkg_utils".format(python_version_major_minor)
+        self.exec_run(cmd)
+
+        print('pip install karr_lab_build_utils --')
+        cmd = "pip{} install -U --process-dependency-links "\
+            "git+https://github.com/KarrLab/karr_lab_build_utils.git#egg=karr_lab_build_utils".format(
+                python_version_major_minor)
+        self.exec_run(cmd)
+
+    def clone_karr_lab_repos(self):
+        """ Use git to clone KarrLab GitHub repos into the container
+
+        Raises:
+            :obj:`EnvError`: if mkdir or git commands fail
+        """
+        self.exec_run("mkdir {}".format(self.container_local_repos))
+        for wc_repo in ALL_WC_REPOS.split():
+            cmd = "git clone https://github.com/KarrLab/{}.git".format(wc_repo)
+            self.exec_run(cmd, workdir=self.container_local_repos)
+
+        # create a PYTHONPATH for the container with local KarrLab repos ahead of cloned KarrLab repos
+
+    # todo: copy a custom .bash_profile file into the container
+
+    def run(self):
         """ Run a Docker container for `wc_env`
-
-        Args:
-            arg_1 (:obj:`type of arg_1`): description of arg_1
-            kwarg_1 (:obj:`type of kwarg_1`, optional): description of kwarg_1
-            ...
-
-        Returns:
-            :obj:`type of return value`: description of return value
 
         Raises:
             :obj:`type of raised exception(s)`: description of raised exceptions
         """
-        # step 1
-        # step 2
-        pass
+        self.create()
+        self.load_karr_lab_tools()
+        self.clone_karr_lab_repos()
 
     def use(self, arg_1, arg_2, kwarg_1=None, kwarg_2=None):
         """ Use an existing Docker container for `wc_env`
@@ -384,6 +408,28 @@ class ManageContainer(object):
         result.stdout = result.stdout.decode('utf-8')
         result.stderr = result.stderr.decode('utf-8')
         result.check_returncode()
+
+    def exec_run(self, command, **kwargs):
+        """ Run exec_run on a container
+
+        Args:
+            command (:obj:`str`): the command to have `exec_run` run
+            kwargs (:obj:`dict`): keyword arguments for `exec_run`
+
+        Returns:
+            :obj:`str`: output of `exec_run`
+
+        Raises:
+            :obj:`EnvError`: if `self.container.exec_run` fails
+        """
+        exit_code,output = self.container.exec_run(command.split(), **kwargs)
+        kws = ', '.join(['{}={}'.format(k,v) for k,v in kwargs.items()])
+        if kws:
+            kws = ', ' + kws
+        if exit_code!=0:
+            raise EnvError("{}:\nself.container.exec_run({}{}) receives exit_code {}".format(__file__,
+                command, kws, exit_code))
+        return output.decode('utf-8')
 
 
 class ExampleClass(object):
