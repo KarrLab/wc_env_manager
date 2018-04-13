@@ -14,11 +14,6 @@ import logging
 import docker
 import subprocess
 
-'''
-Usage:
-wc_env creates a local computing environment for running and testing KarrLab whole cell software on your machine. It uses the Docker container system to create the environment, and to make the environment portable to all major operating systems, including Mac OSX, Linux and Windows.
-'''
-
 
 class Error(Exception):
     """ Base class for exceptions in `wc_env`
@@ -42,6 +37,7 @@ class EnvError(Error):
 
 # todo: use logging
 # todo: clarify terminology for cloned & local WC/KarrLab repos
+# todo: use configs_repo_pwd_file if ssh_key not available
 # todo: replace CONTAINER_DEFAULTS with defaults in a config file
 CONTAINER_DEFAULTS = dict(
     ssh_key='~/.ssh/id_rsa_github',     # an ssh key that accesses karr_lab_repo_root, and doesn't need a passphrase
