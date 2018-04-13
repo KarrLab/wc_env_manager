@@ -217,6 +217,19 @@ class TestManageContainer(unittest.TestCase):
         manage_container.cp(self.absolute_path_file, path_in_container)
         DockerUtils.cmp_files(self, manage_container.container, path_in_container, host_file_content=self.moving_text)
 
+        # test pp_to_karr_lab_repos
+        # manage_container = self.make_container(wc_repos=self.test_wc_repos)
+        pythonpath = manage_container.pp_to_karr_lab_repos()
+        for wc_repo_path in self.test_wc_repos:
+            wc_repo = os.path.basename(wc_repo_path)
+            self.assertIn(wc_repo, pythonpath)
+        for cloned_karr_lab_repo in wc_env.ManageContainer.all_wc_repos():
+            self.assertIn(cloned_karr_lab_repo, pythonpath)
+        for wc_repo_path in self.test_wc_repos:
+            wc_repo = os.path.basename(wc_repo_path)
+            for cloned_karr_lab_repo in wc_env.ManageContainer.all_wc_repos():
+                self.assertTrue(pythonpath.index(wc_repo)<=pythonpath.index(cloned_karr_lab_repo))
+
     def make_container(self, wc_repos=None, save_container=False):
         # make a test container
         # set save_container to save the container for later investigation
@@ -240,7 +253,7 @@ class TestManageContainer(unittest.TestCase):
         manage_container.clone_karr_lab_repos()
         kl_repos = manage_container.exec_run('ls {}'.format(manage_container.container_local_repos))
         kl_repos = set(kl_repos.split('\n'))
-        self.assertTrue(set(wc_env.ALL_WC_REPOS.split()).issubset(kl_repos))
+        self.assertTrue(set(wc_env.ManageContainer.all_wc_repos()).issubset(kl_repos))
 
     def test_exec_run(self):
         manage_container = self.make_container()

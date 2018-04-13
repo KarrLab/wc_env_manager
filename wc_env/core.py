@@ -50,8 +50,6 @@ CONTAINER_DEFAULTS = dict(
     container_local_repos='/usr/local_repos/',
     wc_env_container_name_prefix='wc_env',
 )
-# :todo: get repos in ALL_WC_REPOS programatically
-ALL_WC_REPOS='wc_lang wc_sim wc_utils obj_model wc_kb kinetic_datanator wc_rules'
 
 
 class ManageImage(object):
@@ -253,14 +251,33 @@ class ManageContainer(object):
             :obj:`EnvError`: if mkdir or git commands fail
         """
         self.exec_run("mkdir {}".format(self.container_local_repos))
-        for wc_repo in ALL_WC_REPOS.split():
+        for wc_repo in ManageContainer.all_wc_repos():
             cmd = "git clone https://github.com/KarrLab/{}.git".format(wc_repo)
             self.exec_run(cmd, workdir=self.container_local_repos)
 
-        # create a PYTHONPATH for the container with local KarrLab repos ahead of cloned KarrLab repos
+    def pp_to_karr_lab_repos(self):
+        """ Create bash command to append KarrLab repos to `PYTHONPATH` in container
+
+        Local KarrLab repos mounted on volumes come ahead of cloned KarrLab repos.
+
+        Returns:
+            :obj:`str`): `PYTHONPATH` export command
+        """
+        # todo: clarify terminology for cloned & local WC/KarrLab repos
+        pythonpath = []
+        # paths for mounted local wc_repos
+        for local_wc_repo in self.local_wc_repos:
+            local_wc_repo_basename = os.path.basename(local_wc_repo)
+            pythonpath.append(os.path.join(self.container_repo_dir, local_wc_repo_basename))
+
+        # paths for repos cloned into container
+        for wc_repo in ManageContainer.all_wc_repos():
+            pythonpath.append(os.path.join(self.container_local_repos, wc_repo))
+
+        rv = 'export PYTHONPATH="$PYTHONPATH:{}"'.format(':'.join(pythonpath))
+        return rv
 
     # todo: copy a custom .bash_profile file into the container
-
     def run(self):
         """ Run a Docker container for `wc_env`
 
@@ -431,6 +448,16 @@ class ManageContainer(object):
                 command, kws, exit_code))
         return output.decode('utf-8')
 
+    @staticmethod
+    def all_wc_repos():
+        """ Get all WC repos
+
+        Returns:
+            :obj:`list` of `str`): list of names of all WC repos
+        """
+        # :todo: get these repos programatically
+        ALL_WC_REPOS='wc_lang wc_sim wc_utils obj_model wc_kb kinetic_datanator wc_rules'
+        return ALL_WC_REPOS.split()
 
 class ExampleClass(object):
     """ Descipton of ExampleClass
