@@ -13,6 +13,7 @@ import os
 import stat
 import subprocess
 import docker
+from capturer import CaptureOutput
 from inspect import currentframe, getframeinfo
 
 import wc_env.core
@@ -89,10 +90,10 @@ class DockerUtils(object):
 
 
 # todo: port to and test on Windows
+# todo: perhaps try to speedup testing; could reuse containers
 class TestManageContainer(unittest.TestCase):
 
     def setUp(self):
-        # todo: make this OS portable
         # use mkdtemp() instead of TemporaryDirectory() so files can survive testing for debugging container
         # put in temp dir in /private/tmp which can contain a Docker volume by default
         self.test_dir = tempfile.mkdtemp(dir='/private/tmp')
@@ -163,6 +164,8 @@ class TestManageContainer(unittest.TestCase):
         with self.assertRaises(wc_env.EnvError):
             wc_env.ManageContainer([self.absolute_path_file], '0.1')
         repo_a = os.path.join(self.temp_dir_in_home, 'repo_a')
+        with self.assertRaises(wc_env.EnvError):
+            wc_env.ManageContainer([repo_a, repo_a], '0.1')
         os.chmod(repo_a, 0)
         with self.assertRaises(wc_env.EnvError):
             wc_env.ManageContainer([repo_a], '0.1')
@@ -230,12 +233,14 @@ class TestManageContainer(unittest.TestCase):
             for cloned_karr_lab_repo in wc_env.ManageContainer.all_wc_repos():
                 self.assertTrue(pythonpath.index(wc_repo)<=pythonpath.index(cloned_karr_lab_repo))
 
-    def make_container(self, wc_repos=None, save_container=False):
+    def make_container(self, wc_repos=None, save_container=False, verbose=False):
         # make a test container
+        # provide wc_repos to create volumes for them
         # set save_container to save the container for later investigation
+        # set verbose to produce verbose output
         if wc_repos is None:
             wc_repos = []
-        manage_container = wc_env.ManageContainer(wc_repos, '0.0.1')
+        manage_container = wc_env.ManageContainer(wc_repos, '0.0.1', verbose=verbose)
         container = manage_container.create()
         if save_container:
             print("docker attach {}".format(container.name))
@@ -246,7 +251,11 @@ class TestManageContainer(unittest.TestCase):
     def test_load_karr_lab_tools(self):
         manage_container = self.make_container()
         manage_container.load_karr_lab_tools()
-        # todo: need tests
+        try:
+            # test karr_lab_build_utils
+            self.assertIn('karr_lab_build_utils', manage_container.exec_run("karr_lab_build_utils -h"))
+        except Exception as e:
+            self.fail('Exception thrown by exec_run("karr_lab_build_utils -h") {}'.format(e))
 
     def test_clone_karr_lab_repos(self):
         manage_container = self.make_container()
@@ -256,11 +265,18 @@ class TestManageContainer(unittest.TestCase):
         self.assertTrue(set(wc_env.ManageContainer.all_wc_repos()).issubset(kl_repos))
 
     def test_exec_run(self):
-        manage_container = self.make_container()
-        with self.assertRaises(wc_env.EnvError):
-            manage_container.exec_run('no_such_command x')
-        ls = set(manage_container.exec_run('ls').split('\n'))
-        self.assertTrue(set('usr bin home tmp root etc lib'.split()).issubset(ls))
+        with CaptureOutput(relay=False) as capturer:
+            manage_container = self.make_container(verbose=True)
+            with self.assertRaises(wc_env.EnvError):
+                manage_container.exec_run('no_such_command x')
+            ls = set(manage_container.exec_run('ls').split('\n'))
+            self.assertTrue(set('usr bin home tmp root etc lib'.split()).issubset(ls))
+            verbose_output = ['Running: containers.run',
+                'Running: container.exec_run(ssh-keyscan',
+                'Running: container.exec_run(no_such_command x)',
+                'Running: container.exec_run(ls)']
+            for verbose_line in verbose_output:
+                self.assertIn(verbose_line, capturer.get_text())
 
     def test_cp_exceptions(self):
         manage_container = wc_env.ManageContainer([], '0.0.1')
@@ -268,4 +284,3 @@ class TestManageContainer(unittest.TestCase):
             manage_container.cp(self.absolute_path_file, '')
         with self.assertRaises(wc_env.EnvError):
             manage_container.cp('no such file', '')
-

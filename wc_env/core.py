@@ -10,9 +10,14 @@ import os
 from datetime import datetime
 from pathlib import Path
 import tempfile
-import tarfile
+import logging
 import docker
 import subprocess
+
+'''
+Usage:
+wc_env creates a local computing environment for running and testing KarrLab whole cell software on your machine. It uses the Docker container system to create the environment, and to make the environment portable to all major operating systems, including Mac OSX, Linux and Windows.
+'''
 
 
 class Error(Exception):
@@ -35,7 +40,9 @@ class EnvError(Error):
         super().__init__(message)
 
 
-# :todo: replace with defaults in a config file
+# todo: use logging
+# todo: clarify terminology for cloned & local WC/KarrLab repos
+# todo: replace CONTAINER_DEFAULTS with defaults in a config file
 CONTAINER_DEFAULTS = dict(
     ssh_key='~/.ssh/id_rsa_github',     # an ssh key that accesses karr_lab_repo_root, and doesn't need a passphrase
     configs_repo_username='karr-lab-daemon-public',
@@ -120,19 +127,27 @@ class ManageContainer(object):
             verbose (:obj:`bool`, optional): if True, produce verbose output
 
         Raises:
-            :obj:`EnvError`: if any local_wc_repos are not readable directories
+            :obj:`EnvError`: if any local_wc_repos are not readable directories or are provided repeatedly
         """
         # resolve local_wc_repos as absolute paths
         self.local_wc_repos = []
-        # todo: cannot have multiple repos with the same name
+        repo_names = set()
         errors = []
         for local_wc_repo_dir in local_wc_repos:
             path = os.path.abspath(os.path.expanduser(local_wc_repo_dir))
+            # repo must be a readable directory
             if not(os.access(path, os.R_OK) and Path(path).is_dir()):
-                errors.append(local_wc_repo_dir)
+                errors.append("local WC repo dir '{}' is not a readable directory".format(path))
+                continue
+            # cannot have multiple repos with the same name
+            repo_name = os.path.basename(path)
+            if repo_name in repo_names:
+                errors.append("repo '{}' appears multiple times in local_wc_repos".format(repo_name))
+                continue
+            repo_names.add(repo_name)
             self.local_wc_repos.append(path)
         if errors:
-            raise EnvError("local WC repo dir(s) '{}' are not readable directories".format(', '.join(errors)))
+            raise EnvError(', '.join(errors))
 
         self.image_version = image_version
         self.image_name = image_name
@@ -145,7 +160,6 @@ class ManageContainer(object):
         self.ssh_key = ssh_key
         self.git_config_file = git_config_file
         self.verbose = verbose
-        # todo: use self.verbose and logging
         self.container = None
         self.container_name = None
         self.docker_client = docker.from_env()
@@ -191,7 +205,6 @@ class ManageContainer(object):
         """
         # todo after image stored on Hub: pull the Docker wc_env image from Docker Hub
         # create a unique container name
-        # todo: let user specify the container name
         self.container_name = "{}_{}".format(CONTAINER_DEFAULTS['wc_env_container_name_prefix'],
             datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
 
@@ -206,6 +219,8 @@ class ManageContainer(object):
             container_wc_repo_dir = os.path.join(self.container_repo_dir, local_wc_repo_basename)
             self.volumes[local_wc_repo] = {'bind': container_wc_repo_dir, 'mode': 'rw'}
         try:
+            if self.verbose:
+                print("Running: containers.run({}, name='{}', etc.)".format(env_image, self.container_name))
             self.container = self.docker_client.containers.run(env_image, command='bash',
                 name=self.container_name,
                 volumes=self.volumes,
@@ -265,7 +280,6 @@ class ManageContainer(object):
         Returns:
             :obj:`str`): `PYTHONPATH` export command
         """
-        # todo: clarify terminology for cloned & local WC/KarrLab repos
         pythonpath = []
         # paths for mounted local wc_repos
         for local_wc_repo in self.local_wc_repos:
@@ -279,16 +293,17 @@ class ManageContainer(object):
         rv = 'export PYTHONPATH="$PYTHONPATH:{}"'.format(':'.join(pythonpath))
         return rv
 
-    # todo: copy a custom .bash_profile file into the container
     def run(self):
         """ Run a Docker container for `wc_env`
 
-        Raises:
-            :obj:`type of raised exception(s)`: description of raised exceptions
+        Returns:
+            :obj:`docker.models.containers.Container`): the running container
         """
-        self.create()
+        container = self.create()
         self.load_karr_lab_tools()
         self.clone_karr_lab_repos()
+        # todo: copy a custom .bash_profile file into the container
+        return container
 
     def use(self, arg_1, arg_2, kwarg_1=None, kwarg_2=None):
         """ Use an existing Docker container for `wc_env`
@@ -423,10 +438,12 @@ class ManageContainer(object):
         Raises:
             :obj:`EnvError`: if `self.container.exec_run` fails
         """
-        exit_code,output = self.container.exec_run(command.split(), **kwargs)
         kws = ', '.join(['{}={}'.format(k,v) for k,v in kwargs.items()])
         if kws:
             kws = ', ' + kws
+        if self.verbose:
+            print("Running: container.exec_run({}{})".format(command, kws))
+        exit_code,output = self.container.exec_run(command.split(), **kwargs)
         if exit_code!=0:
             raise EnvError("{}:\nself.container.exec_run({}{}) receives exit_code {}".format(__file__,
                 command, kws, exit_code))
