@@ -60,85 +60,8 @@ CONTAINER_DEFAULTS = dict(
 )
 
 
-# todo: integrate the attrs and args redundant between ManageImage & ManageContainer; have one contain the other?
-class ManageImage(object):
-    """ Manage a Docker image for `wc_env`
-
-    Attributes:
-        name (:obj:`str`): name of the Docker container being managed
-        image_version (:obj:`str`): version of the KarrLab Docker image at Docker Hub
-        verbose (:obj:`bool`): if True, produce verbose output
-        docker_client (:obj:`docker.client.DockerClient`): client connected to the docker daemon
-    """
-
-    def __init__(self, name, image_version, verbose=False):
-        """
-        Args:
-            name (:obj:`str`): name of the Docker container being managed
-            image_version (:obj:`str`): version of the KarrLab Docker image at Docker Hub
-            verbose (:obj:`bool`, optional): if True, produce verbose output
-        """
-        self.name = name
-        self.image_version = image_version
-        self.verbose = verbose
-        self.docker_client = docker.from_env()
-
-    def build(self, path=None, fileobj=None, push=False):
-        """ Build a Docker image for `wc_env`
-
-        Args:
-            path (:obj:`str`, optional): path to the directory containing the Dockerfile; default is
-                the current working directory
-            fileobj (:obj:`str`, optional): file object to use as the Dockerfile
-            push (:obj:`bool`, optional): if True, push the image that's built to Docker Hub; default is False
-
-        Returns:
-            :obj:`type of return value`: description of return value
-
-        Raises:
-            :obj:`EnvError`: if both `path` and `fileobj` are set
-        """
-        # compile requirements for the image
-        if path is not None and fileobj is not None:
-            raise EnvError("path '{}' and fileobj '{}' cannot both be set".format(path, fileobj))
-        if path is None and fileobj is None:
-            path = os.getcwd()
-        tag='karrlab/wc_env:{}'.format(self.image_version)
-        buildargs = dict(
-            version_py2=CONTAINER_DEFAULTS['python2_version'],
-            version_py3=CONTAINER_DEFAULTS['python3_version'],
-            version_openbabel=CONTAINER_DEFAULTS['version_openbabel'],
-        )
-        try:
-            if self.verbose:
-                print("Running: docker_client.build(path={}, tag={}, etc.)".format(path, tag))
-            print("Building Docker image; this may take awhile ...")
-            # build the image; setting pull obtains an updated FROM image
-            image,logs = self.docker_client.images.build(path=path,
-                fileobj=fileobj,
-                tag=tag,
-                buildargs=buildargs,
-                pull=True)
-        except requests.exceptions.ConnectionError as e:    # pragma: no cover     # tested by hand
-            raise EnvError("ConnectionError: Docker cannot build image: ensure that Docker is running: {}".format(e))
-        except docker.errors.BuildError as e:   # pragma: no cover     # tested by hand
-            raise EnvError("BuildError: Docker cannot build image: ensure that the Internet is connected: {}".format(e))
-        except Exception as e:
-            raise EnvError("Error: cannot build image: {}".format(e))
-        self.image = image
-        if self.verbose:
-            for entry in logs:
-                if 'stream' in entry:
-                    print(entry['stream'], end='')
-                elif 'id' in entry and 'status' in entry:
-                    print('{}: {}'.format(entry['id'], entry['status']))
-        # todo: test the image
-        # optionally, push to Docker Hub
-        return image
-
-
-class ManageContainer(object):
-    """ Manage a Docker container for `wc_env`
+class WCenv(object):
+    """ Manage a Docker image and container for `wc_env`
 
     Attributes:
         local_wc_repos (:obj:`list` of `str`): directories of local KarrLab repos being modified
@@ -257,6 +180,59 @@ class ManageContainer(object):
 
         # todo: test credentials against GitHub and the config repo
 
+    def build(self, path=None, fileobj=None, push=False):
+        """ Build a Docker image for `wc_env`
+
+        Args:
+            path (:obj:`str`, optional): path to the directory containing the Dockerfile; default is
+                the current working directory
+            fileobj (:obj:`str`, optional): file object to use as the Dockerfile
+            push (:obj:`bool`, optional): if True, push the image that's built to Docker Hub; default is False
+
+        Returns:
+            :obj:`type of return value`: description of return value
+
+        Raises:
+            :obj:`EnvError`: if both `path` and `fileobj` are set
+        """
+        # compile requirements for the image
+        if path is not None and fileobj is not None:
+            raise EnvError("path '{}' and fileobj '{}' cannot both be set".format(path, fileobj))
+        if path is None and fileobj is None:
+            path = os.getcwd()
+        tag='karrlab/wc_env:{}'.format(self.image_version)
+        buildargs = dict(
+            version_py2=CONTAINER_DEFAULTS['python2_version'],
+            version_py3=CONTAINER_DEFAULTS['python3_version'],
+            version_openbabel=CONTAINER_DEFAULTS['version_openbabel'],
+        )
+        try:
+            if self.verbose:
+                print("Running: docker_client.build(path={}, tag={}, etc.)".format(path, tag))
+            print("Building Docker image; this may take awhile ...")
+            # build the image; setting pull obtains an updated FROM image
+            image,logs = self.docker_client.images.build(path=path,
+                fileobj=fileobj,
+                tag=tag,
+                buildargs=buildargs,
+                pull=True)
+        except requests.exceptions.ConnectionError as e:    # pragma: no cover     # tested by hand
+            raise EnvError("ConnectionError: Docker cannot build image: ensure that Docker is running: {}".format(e))
+        except docker.errors.BuildError as e:   # pragma: no cover     # tested by hand
+            raise EnvError("BuildError: Docker cannot build image: ensure that the Internet is connected: {}".format(e))
+        except Exception as e:
+            raise EnvError("Error: cannot build image: {}".format(e))
+        self.image = image
+        if self.verbose:
+            for entry in logs:
+                if 'stream' in entry:
+                    print(entry['stream'], end='')
+                elif 'id' in entry and 'status' in entry:
+                    print('{}: {}'.format(entry['id'], entry['status']))
+        # todo: test the image
+        # optionally, push to Docker Hub
+        return image
+
     def make_container_name(self):
         """ Create a timestamped name for a `wc_env` Docker container
 
@@ -346,7 +322,7 @@ class ManageContainer(object):
             :obj:`EnvError`: if mkdir or git commands fail
         """
         self.exec_run("mkdir {}".format(self.container_local_repos))
-        for wc_repo in ManageContainer.all_wc_repos():
+        for wc_repo in WCenv.all_wc_repos():
             cmd = "git clone https://github.com/KarrLab/{}.git".format(wc_repo)
             self.exec_run(cmd, workdir=self.container_local_repos)
 
@@ -365,7 +341,7 @@ class ManageContainer(object):
             pythonpath.append(os.path.join(self.container_repo_dir, local_wc_repo_basename))
 
         # paths for repos cloned into container
-        for wc_repo in ManageContainer.all_wc_repos():
+        for wc_repo in WCenv.all_wc_repos():
             pythonpath.append(os.path.join(self.container_local_repos, wc_repo))
 
         rv = 'export PYTHONPATH="$PYTHONPATH:{}"'.format(':'.join(pythonpath))

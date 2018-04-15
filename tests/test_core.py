@@ -12,6 +12,7 @@ import shutil
 import os
 import stat
 import subprocess
+import time
 import docker
 from capturer import CaptureOutput
 from inspect import currentframe, getframeinfo
@@ -89,41 +90,11 @@ class DockerUtils(object):
         testcase.assertEqual(DockerUtils.get_file(container, container_filename), host_file_content)
 
 
-class TestManageImage(unittest.TestCase):
-
-    def test_build(self):
-        manage_image = wc_env.ManageImage('foo', '0.0.1', verbose=True)
-        with self.assertRaises(wc_env.EnvError):
-            with open(os.path.join(os.path.dirname(__file__),
-                'fixtures/docker_files/bad_Dockerfile'), 'rb') as dockerfile_fileobj:
-                manage_image.build(fileobj=dockerfile_fileobj)
-        with self.assertRaises(wc_env.EnvError):
-            path = os.path.join(os.path.dirname(__file__), 'fixtures/docker_files/empty_dir')
-            manage_image.build(path=path)
-        with self.assertRaises(wc_env.EnvError):
-            manage_image.build(path='dummy', fileobj='dummy')
-        with CaptureOutput() as capturer:
-            with open(os.path.join(os.path.dirname(__file__),
-                'fixtures/docker_files/simple_busybox_Dockerfile'), 'rb') as dockerfile_fileobj:
-                image = manage_image.build(fileobj=dockerfile_fileobj)
-                self.assertTrue(type(image), docker.models.images.Image)
-                expected_output = ['Running: docker_client.build',
-                    'Successfully built',]
-                for line in expected_output:
-                    self.assertIn(line, capturer.get_text())
-        # manage_image.build(path=os.path.join(os.path.dirname(__file__), '../wc_env/no_such_dir/'))
-
-    def test_build_default_path(self):
-        current = os.getcwd()
-        docker_dir = os.path.join(os.path.dirname(__file__), 'fixtures/docker_files')
-        os.chdir(docker_dir)
-        manage_image = wc_env.ManageImage('foo', '0.0.1')
-        self.assertTrue(type(manage_image.build()), docker.models.images.Image)
-        os.chdir(current)
+SLOW_TEST_THRESHOLD = 20
 
 # todo: port to and test on Windows
 # todo: perhaps try to speedup testing; could reuse containers
-class TestManageContainer(unittest.TestCase):
+class TestWCenv(unittest.TestCase):
 
     def setUp(self):
         # use mkdtemp() instead of TemporaryDirectory() so files can be saved for debugging containers
@@ -159,11 +130,13 @@ class TestManageContainer(unittest.TestCase):
             self.make_test_repo(test_wc_repo)
 
         self.docker_client = docker.from_env()
-        # ManageContainers with created containers that need to be removed
+        # WCenvs with created containers that need to be removed
         self.tmp_container_managers = []
 
         self.manage_container = self.make_container(wc_repos=self.test_wc_repos)
         self.container = self.manage_container.create()
+
+        self._started_at = time.time()
 
     def tearDown(self):
         # remove containers created by these tests
@@ -181,6 +154,10 @@ class TestManageContainer(unittest.TestCase):
             shutil.rmtree(self.test_dir)
             shutil.rmtree(self.temp_dir_in_home)
 
+        elapsed = time.time() - self._started_at
+        if elapsed > SLOW_TEST_THRESHOLD:
+            print('slow test: {} ({}s)'.format(self.id(), round(elapsed, 2)), file=sys.stderr)
+
     @classmethod
     def tearDownClass(cls):
         list_all_containers = False
@@ -196,7 +173,7 @@ class TestManageContainer(unittest.TestCase):
             f.write(os.path.basename(test_repo))
 
     def test_constructor(self):
-        manage_container = wc_env.ManageContainer(self.test_wc_repos, '0.1')
+        manage_container = wc_env.WCenv(self.test_wc_repos, '0.1')
         expected_repo_paths = [
             os.path.join(self.temp_dir_in_home, 'repo_a'),
             os.path.join(self.test_dir, 'repo_b'),
@@ -205,20 +182,20 @@ class TestManageContainer(unittest.TestCase):
         for computed_path,expected_path in zip(manage_container.local_wc_repos, expected_repo_paths):
             self.assertEqual(computed_path, expected_path)
         with self.assertRaises(wc_env.EnvError):
-            wc_env.ManageContainer([self.absolute_path_file], '0.1')
+            wc_env.WCenv([self.absolute_path_file], '0.1')
         repo_a = os.path.join(self.temp_dir_in_home, 'repo_a')
         with self.assertRaises(wc_env.EnvError):
             # redundant repos
-            wc_env.ManageContainer([repo_a, repo_a], '0.1')
+            wc_env.WCenv([repo_a, repo_a], '0.1')
         os.chmod(repo_a, 0)
         with self.assertRaises(wc_env.EnvError):
             # unreadable repo
-            wc_env.ManageContainer([repo_a], '0.1')
+            wc_env.WCenv([repo_a], '0.1')
         os.chmod(repo_a, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
     def do_check_credentials(self, test_configs_repo_pwd_file, expected):
-        # check ManageContainer.check_credentials()
-        manage_container = wc_env.ManageContainer([], '0.1',
+        # check WCenv.check_credentials()
+        manage_container = wc_env.WCenv([], '0.1',
             configs_repo_pwd_file=test_configs_repo_pwd_file)
         manage_container.check_credentials()
         self.assertEqual(manage_container.configs_repo_pwd_file, expected)
@@ -241,8 +218,37 @@ class TestManageContainer(unittest.TestCase):
 
         # no credentials
         with self.assertRaises(wc_env.EnvError):
-            manage_container = wc_env.ManageContainer([], '0.1',
+            manage_container = wc_env.WCenv([], '0.1',
                 configs_repo_pwd_file=test_no_such_file, ssh_key=test_no_such_file)
+
+    def test_build(self):
+        manage_image = wc_env.WCenv([], '0.0.1', verbose=True)
+        with self.assertRaises(wc_env.EnvError):
+            with open(os.path.join(os.path.dirname(__file__),
+                'fixtures/docker_files/bad_Dockerfile'), 'rb') as dockerfile_fileobj:
+                manage_image.build(fileobj=dockerfile_fileobj)
+        with self.assertRaises(wc_env.EnvError):
+            path = os.path.join(os.path.dirname(__file__), 'fixtures/docker_files/empty_dir')
+            manage_image.build(path=path)
+        with self.assertRaises(wc_env.EnvError):
+            manage_image.build(path='dummy', fileobj='dummy')
+        with CaptureOutput() as capturer:
+            with open(os.path.join(os.path.dirname(__file__),
+                'fixtures/docker_files/simple_busybox_Dockerfile'), 'rb') as dockerfile_fileobj:
+                image = manage_image.build(fileobj=dockerfile_fileobj)
+                self.assertTrue(type(image), docker.models.images.Image)
+                expected_output = ['Running: docker_client.build',
+                    'Successfully built',]
+                for line in expected_output:
+                    self.assertIn(line, capturer.get_text())
+
+    def test_build_default_path(self):
+        current = os.getcwd()
+        docker_dir = os.path.join(os.path.dirname(__file__), 'fixtures/docker_files')
+        os.chdir(docker_dir)
+        manage_image = wc_env.WCenv([], '0.0.1')
+        self.assertTrue(type(manage_image.build()), docker.models.images.Image)
+        os.chdir(current)
 
     def test_create(self):
         # spot-check files in the 3 repos in the container
@@ -257,17 +263,17 @@ class TestManageContainer(unittest.TestCase):
                 host_file_content=os.path.basename(local_wc_repo))
 
         # just ssh_key
-        manage_container = wc_env.ManageContainer([], '0.0.1', git_config_file=None)
+        manage_container = wc_env.WCenv([], '0.0.1', git_config_file=None)
         self.tmp_container_managers.append(manage_container)
         manage_container.create()
 
         # just .gitconfig
-        manage_container = wc_env.ManageContainer([], '0.0.1', ssh_key=None)
+        manage_container = wc_env.WCenv([], '0.0.1', ssh_key=None)
         self.tmp_container_managers.append(manage_container)
         manage_container.create()
 
     def test_create_exceptions(self):
-        manage_container = wc_env.ManageContainer([], '0.0.1')
+        manage_container = wc_env.WCenv([], '0.0.1')
         with self.assertRaises(wc_env.EnvError):
             manage_container.create(name='bad container name, spaces not legal')
 
@@ -284,11 +290,11 @@ class TestManageContainer(unittest.TestCase):
         for wc_repo_path in self.test_wc_repos:
             wc_repo = os.path.basename(wc_repo_path)
             self.assertIn(wc_repo, pythonpath)
-        for cloned_karr_lab_repo in wc_env.ManageContainer.all_wc_repos():
+        for cloned_karr_lab_repo in wc_env.WCenv.all_wc_repos():
             self.assertIn(cloned_karr_lab_repo, pythonpath)
         for wc_repo_path in self.test_wc_repos:
             wc_repo = os.path.basename(wc_repo_path)
-            for cloned_karr_lab_repo in wc_env.ManageContainer.all_wc_repos():
+            for cloned_karr_lab_repo in wc_env.WCenv.all_wc_repos():
                 self.assertTrue(pythonpath.index(wc_repo)<=pythonpath.index(cloned_karr_lab_repo))
 
     def make_container(self, wc_repos=None, save_container=False, verbose=False):
@@ -298,7 +304,7 @@ class TestManageContainer(unittest.TestCase):
         # set verbose to produce verbose output
         if wc_repos is None:
             wc_repos = []
-        manage_container = wc_env.ManageContainer(wc_repos, '0.0.1', verbose=verbose)
+        manage_container = wc_env.WCenv(wc_repos, '0.0.1', verbose=verbose)
         container = manage_container.create()
         if save_container:
             print("docker attach {}".format(container.name))
@@ -325,14 +331,14 @@ class TestManageContainer(unittest.TestCase):
         manage_container.clone_karr_lab_repos()
         kl_repos = manage_container.exec_run('ls {}'.format(manage_container.container_local_repos))
         kl_repos = set(kl_repos.split('\n'))
-        self.assertTrue(set(wc_env.ManageContainer.all_wc_repos()).issubset(kl_repos))
+        self.assertTrue(set(wc_env.WCenv.all_wc_repos()).issubset(kl_repos))
 
     def test_run(self):
         manage_container = self.make_container(wc_repos=self.test_wc_repos, save_container=True, verbose=True)
         manage_container.run()
 
     def test_cp_exceptions(self):
-        manage_container = wc_env.ManageContainer([], '0.0.1')
+        manage_container = wc_env.WCenv([], '0.0.1')
         with self.assertRaises(wc_env.EnvError):
             manage_container.cp(self.absolute_path_file, '')
         with self.assertRaises(wc_env.EnvError):
