@@ -113,7 +113,7 @@ class ManageImage(object):
             if self.verbose:
                 print("Running: docker_client.build(path={}, tag={}, etc.)".format(path, tag))
             print("Building Docker image; this may take awhile ...")
-            # build the image; setting pull obtains an updated image
+            # build the image; setting pull obtains an updated FROM image
             image,logs = self.docker_client.images.build(path=path,
                 fileobj=fileobj,
                 tag=tag,
