@@ -89,12 +89,21 @@ class DockerUtils(object):
         testcase.assertEqual(DockerUtils.get_file(container, container_filename), host_file_content)
 
 
+class TestManageImage(unittest.TestCase):
+
+    def test_build(self):
+        manage_image = wc_env.ManageImage('foo', '0.0.1', verbose=True)
+        manage_image.build(path=os.path.join(os.path.dirname(__file__),
+            '../wc_env/tmp_dockerfiles/'))
+
+
 # todo: port to and test on Windows
 # todo: perhaps try to speedup testing; could reuse containers
 class TestManageContainer(unittest.TestCase):
 
     def setUp(self):
-        # use mkdtemp() instead of TemporaryDirectory() so files can survive testing for debugging container
+        # use mkdtemp() instead of TemporaryDirectory() so files can be saved after
+        # testing to debug containers by setting `remove_temp_files`
         # put in temp dir in /private/tmp which can contain a Docker volume by default
         self.test_dir = tempfile.mkdtemp(dir='/private/tmp')
         self.temp_dir_in_home  = \
@@ -141,7 +150,7 @@ class TestManageContainer(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        # DockerUtils.list_all()
+        DockerUtils.list_all()
         pass
 
     def make_test_repo(self, relative_path):
@@ -221,7 +230,6 @@ class TestManageContainer(unittest.TestCase):
         DockerUtils.cmp_files(self, manage_container.container, path_in_container, host_file_content=self.moving_text)
 
         # test pp_to_karr_lab_repos
-        # manage_container = self.make_container(wc_repos=self.test_wc_repos)
         pythonpath = manage_container.pp_to_karr_lab_repos()
         for wc_repo_path in self.test_wc_repos:
             wc_repo = os.path.basename(wc_repo_path)
@@ -269,6 +277,17 @@ class TestManageContainer(unittest.TestCase):
         kl_repos = set(kl_repos.split('\n'))
         self.assertTrue(set(wc_env.ManageContainer.all_wc_repos()).issubset(kl_repos))
 
+    def test_run(self):
+        manage_container = self.make_container(wc_repos=self.test_wc_repos, save_container=True, verbose=True)
+        manage_container.run()
+
+    def test_cp_exceptions(self):
+        manage_container = wc_env.ManageContainer([], '0.0.1')
+        with self.assertRaises(wc_env.EnvError):
+            manage_container.cp(self.absolute_path_file, '')
+        with self.assertRaises(wc_env.EnvError):
+            manage_container.cp('no such file', '')
+
     def test_exec_run(self):
         with CaptureOutput(relay=False) as capturer:
             manage_container = self.make_container(verbose=True)
@@ -282,10 +301,3 @@ class TestManageContainer(unittest.TestCase):
                 'Running: container.exec_run(ls)']
             for verbose_line in verbose_output:
                 self.assertIn(verbose_line, capturer.get_text())
-
-    def test_cp_exceptions(self):
-        manage_container = wc_env.ManageContainer([], '0.0.1')
-        with self.assertRaises(wc_env.EnvError):
-            manage_container.cp(self.absolute_path_file, '')
-        with self.assertRaises(wc_env.EnvError):
-            manage_container.cp('no such file', '')

@@ -11,8 +11,10 @@ from datetime import datetime
 from pathlib import Path
 import tempfile
 import logging
-import docker
 import subprocess
+
+import docker
+import requests
 
 
 class Error(Exception):
@@ -38,13 +40,16 @@ class EnvError(Error):
 # todo: use logging
 # todo: clarify terminology for cloned & local WC/KarrLab repos
 # todo: use configs_repo_pwd_file if ssh_key not available
+# todo: use a regular user, not /root/: see 'Use USER' section of http://www.projectatomic.io/docs/docker-image-author-guidance/
 # todo: replace CONTAINER_DEFAULTS with defaults in a config file
 CONTAINER_DEFAULTS = dict(
     ssh_key='~/.ssh/id_rsa_github',     # an ssh key that accesses karr_lab_repo_root, and doesn't need a passphrase
     configs_repo_username='karr-lab-daemon-public',
     git_config_file='assets/.gitconfig',
     bash_profile_file='assets/.bash_profile',
-    python_version='3.6.4',
+    python2_version='2.7.14',
+    python3_version='3.6.4',
+    version_openbabel='2.4.1',
     docker_image_name='local_env',
     container_repo_dir='/usr/git_repos',
     configs_repo_pwd_file='tokens/configs_repo_password',
@@ -55,18 +60,84 @@ CONTAINER_DEFAULTS = dict(
 )
 
 
+# todo: intedgrate the attrs and args redundant between ManageImage & ManageContainer; have one contain the other?
 class ManageImage(object):
     """ Manage a Docker image for `wc_env`
 
     Attributes:
-        x (:obj:`str`): name of the Docker container being managed
+        name (:obj:`str`): name of the Docker container being managed
+        image_version (:obj:`str`): version of the KarrLab Docker image at Docker Hub
+        verbose (:obj:`bool`): if True, produce verbose output
+        docker_client (:obj:`docker.client.DockerClient`): client connected to the docker daemon
     """
 
-    def __init__(self, arg1):
+    def __init__(self, name, image_version, verbose=False):
         """
         Args:
-            arg1 (:obj:`str`): name of the Docker container being managed
+            name (:obj:`str`): name of the Docker container being managed
+            image_version (:obj:`str`): version of the KarrLab Docker image at Docker Hub
+            verbose (:obj:`bool`, optional): if True, produce verbose output
         """
+        self.name = name
+        self.image_version = image_version
+        self.verbose = verbose
+        '''
+        for k,v in os.environ.items():
+            if 'DOCK' in k:
+                print("{}={}".format(k,v))
+        '''
+        self.docker_client = docker.from_env()
+
+    def build(self, path=None, push=False):
+        """ Build a Docker image for `wc_env`
+
+        Args:
+            path (:obj:`str`, optional): path to the directory containing the Dockerfile; default is
+                the current working directory
+            push (:obj:`bool`, optional): if True, push the image that's built to Docker Hub; default is False
+
+        Returns:
+            :obj:`type of return value`: description of return value
+
+        Raises:
+            :obj:`type of raised exception(s)`: description of raised exceptions
+        """
+        # compile requirements for the image
+        # build the image; with pull set obtains an updated Ubuntu image
+        if path is None:
+            path = os.getcwd()
+        tag='karrlab/wc_env:{}'.format(self.image_version)
+        buildargs = dict(
+            version_py2=CONTAINER_DEFAULTS['python2_version'],
+            version_py3=CONTAINER_DEFAULTS['python3_version'],
+            version_openbabel=CONTAINER_DEFAULTS['version_openbabel'],
+        )
+        # todo: test and handle other exceptions, e.g., with/wo image available, w/wo Internet on, etc.
+        try:
+            if self.verbose:
+                print("Running: docker_client.build(path={}, tag={}, etc.)".format(path, tag))
+            print("Building Docker image; this may take awhile ...")
+            image,logs = self.docker_client.images.build(path=path,
+                tag=tag,
+                buildargs=buildargs,
+                pull=True)
+        except requests.exceptions.ConnectionError as e:
+            raise EnvError("ConnectionError: Docker cannot build image: ensure that Docker is running: {}".format(e))
+        except docker.errors.BuildError as e:
+            raise EnvError("ConnectionError: Docker cannot build image: ensure that the Internet is connected: {}".format(e))
+        except Exception as e:
+            print('type(e)', type(e))
+            raise EnvError("Error: cannot build image: {}".format(e))
+        self.image = image
+        for entry in logs:
+            if 'stream' in entry:
+                print(entry['stream'], end='')
+            '''
+            elif 'id' in entry and 'status' in entry:
+                print('{}: {}'.format(entry['id'], entry['status']))
+            '''
+        # todo: test the image
+        # optionally, push to Docker Hub
         pass
 
 
@@ -77,7 +148,7 @@ class ManageContainer(object):
         local_wc_repos (:obj:`list` of `str`): directories of local KarrLab repos being modified
         image_version (:obj:`str`): version of the KarrLab Docker image at Docker Hub
         image_name (:obj:`str`): name of the KarrLab Docker image at Docker Hub
-        python_version (:obj:`str`): Python version to use to set up the container
+        python3_version (:obj:`str`): Python version to use to set up the container
         container_repo_dir (:obj:`str`): pathname to dir containing mounted active repos
         container_user_home_dir (:obj:`str`): pathname to home dir of container user
         container_local_repos (:obj:`str`): pathname to dir in container with clones of KarrLab repos
@@ -97,7 +168,7 @@ class ManageContainer(object):
         local_wc_repos,
         image_version,
         image_name=CONTAINER_DEFAULTS['docker_image_name'],
-        python_version=CONTAINER_DEFAULTS['python_version'],
+        python3_version=CONTAINER_DEFAULTS['python3_version'],
         container_repo_dir=CONTAINER_DEFAULTS['container_repo_dir'],
         container_user_home_dir=CONTAINER_DEFAULTS['container_user_home_dir'],
         container_local_repos=CONTAINER_DEFAULTS['container_local_repos'],
@@ -111,7 +182,7 @@ class ManageContainer(object):
             local_wc_repos (:obj:`list` of `str`): directories of local KarrLab repos being modified
             image_version (:obj:`str`): version of the KarrLab Docker image at Docker Hub
             image_name (:obj:`str`, optional): name of the KarrLab Docker image at Docker Hub
-            python_version (:obj:`str`, optional): Python version to use to set up the container
+            python3_version (:obj:`str`, optional): Python version to use to set up the container
             container_repo_dir (:obj:`str`, optional): pathname to dir containing mounted active repos
             container_user_home_dir (:obj:`str`, optional): pathname to home dir of container user
             container_local_repos (:obj:`str`, optional): pathname to dir in container with clones of KarrLab repos
@@ -147,7 +218,7 @@ class ManageContainer(object):
 
         self.image_version = image_version
         self.image_name = image_name
-        self.python_version = python_version
+        self.python3_version = python3_version
         self.container_repo_dir = container_repo_dir
         self.container_user_home_dir = container_user_home_dir
         self.container_local_repos = container_local_repos
@@ -214,6 +285,7 @@ class ManageContainer(object):
             local_wc_repo_basename = os.path.basename(local_wc_repo)
             container_wc_repo_dir = os.path.join(self.container_repo_dir, local_wc_repo_basename)
             self.volumes[local_wc_repo] = {'bind': container_wc_repo_dir, 'mode': 'rw'}
+
         try:
             if self.verbose:
                 print("Running: containers.run({}, name='{}', etc.)".format(env_image, self.container_name))
@@ -223,6 +295,8 @@ class ManageContainer(object):
                 stdin_open=True,
                 tty=True,
                 detach=True)
+        except requests.exceptions.ConnectionError as e:    # pragma: no cover     # tested by hand
+            raise EnvError("ConnectionError: Docker cannot run container: ensure that Docker is running: {}".format(e))
         except Exception as e:
             raise EnvError("Error: cannot run container: {}".format(e))
 
@@ -244,7 +318,7 @@ class ManageContainer(object):
         Raises:
             :obj:`EnvError`: if pip commands fail
         """
-        major,minor,_ = self.python_version.split('.')
+        major,minor,_ = self.python3_version.split('.')
         python_version_major_minor = "{}.{}".format(major, minor)
         print('pip install pkg_utils --')
         cmd = "pip{} install -U --process-dependency-links "\
