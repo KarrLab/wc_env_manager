@@ -10,9 +10,9 @@ import unittest
 import tempfile
 import shutil
 import os
+import sys
 import stat
 import subprocess
-import time
 import docker
 from capturer import CaptureOutput
 from inspect import currentframe, getframeinfo
@@ -90,7 +90,8 @@ class DockerUtils(object):
         testcase.assertEqual(DockerUtils.get_file(container, container_filename), host_file_content)
 
 
-SLOW_TEST_THRESHOLD = 20
+# use pytest --durations to report slow tests
+DONT_RUN_SLOW_TESTS = True
 
 # todo: port to and test on Windows
 # todo: perhaps try to speedup testing; could reuse containers
@@ -136,8 +137,6 @@ class TestWCenv(unittest.TestCase):
         self.manage_container = self.make_container(wc_repos=self.test_wc_repos)
         self.container = self.manage_container.create()
 
-        self._started_at = time.time()
-
     def tearDown(self):
         # remove containers created by these tests
         for container_manager in self.tmp_container_managers:
@@ -153,10 +152,6 @@ class TestWCenv(unittest.TestCase):
             shutil.rmtree(os.path.dirname(self.relative_temp_path))
             shutil.rmtree(self.test_dir)
             shutil.rmtree(self.temp_dir_in_home)
-
-        elapsed = time.time() - self._started_at
-        if elapsed > SLOW_TEST_THRESHOLD:
-            print('slow test: {} ({}s)'.format(self.id(), round(elapsed, 2)), file=sys.stderr)
 
     @classmethod
     def tearDownClass(cls):
@@ -312,6 +307,7 @@ class TestWCenv(unittest.TestCase):
             self.tmp_container_managers.append(manage_container)
         return manage_container
 
+    @unittest.skipIf(DONT_RUN_SLOW_TESTS, "skipping slow tests")
     def test_load_karr_lab_tools(self):
         manage_container = self.make_container()
         with CaptureOutput() as capturer:
@@ -333,9 +329,10 @@ class TestWCenv(unittest.TestCase):
         kl_repos = set(kl_repos.split('\n'))
         self.assertTrue(set(wc_env.WCenv.all_wc_repos()).issubset(kl_repos))
 
+    @unittest.skipIf(DONT_RUN_SLOW_TESTS, "skipping slow tests")
     def test_run(self):
-        manage_container = self.make_container(wc_repos=self.test_wc_repos, save_container=True, verbose=True)
-        manage_container.run()
+        manage_container = self.make_container(wc_repos=self.test_wc_repos)
+        self.assertEqual(type(manage_container.run()), docker.models.containers.Container)
 
     def test_cp_exceptions(self):
         manage_container = wc_env.WCenv([], '0.0.1')
