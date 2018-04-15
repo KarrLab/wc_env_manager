@@ -93,9 +93,33 @@ class TestManageImage(unittest.TestCase):
 
     def test_build(self):
         manage_image = wc_env.ManageImage('foo', '0.0.1', verbose=True)
-        manage_image.build(path=os.path.join(os.path.dirname(__file__),
-            '../wc_env/tmp_dockerfiles/'))
+        with self.assertRaises(wc_env.EnvError):
+            with open(os.path.join(os.path.dirname(__file__),
+                'fixtures/docker_files/bad_Dockerfile'), 'rb') as dockerfile_fileobj:
+                manage_image.build(fileobj=dockerfile_fileobj)
+        with self.assertRaises(wc_env.EnvError):
+            path = os.path.join(os.path.dirname(__file__), 'fixtures/docker_files/empty_dir')
+            manage_image.build(path=path)
+        with self.assertRaises(wc_env.EnvError):
+            manage_image.build(path='dummy', fileobj='dummy')
+        with CaptureOutput() as capturer:
+            with open(os.path.join(os.path.dirname(__file__),
+                'fixtures/docker_files/simple_busybox_Dockerfile'), 'rb') as dockerfile_fileobj:
+                image = manage_image.build(fileobj=dockerfile_fileobj)
+                self.assertTrue(type(image), docker.models.images.Image)
+                expected_output = ['Running: docker_client.build',
+                    'Successfully built',]
+                for line in expected_output:
+                    self.assertIn(line, capturer.get_text())
+        # manage_image.build(path=os.path.join(os.path.dirname(__file__), '../wc_env/no_such_dir/'))
 
+    def test_build_default_path(self):
+        current = os.getcwd()
+        docker_dir = os.path.join(os.path.dirname(__file__), 'fixtures/docker_files')
+        os.chdir(docker_dir)
+        manage_image = wc_env.ManageImage('foo', '0.0.1')
+        self.assertTrue(type(manage_image.build()), docker.models.images.Image)
+        os.chdir(current)
 
 # todo: port to and test on Windows
 # todo: perhaps try to speedup testing; could reuse containers

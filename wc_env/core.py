@@ -60,7 +60,7 @@ CONTAINER_DEFAULTS = dict(
 )
 
 
-# todo: intedgrate the attrs and args redundant between ManageImage & ManageContainer; have one contain the other?
+# todo: integrate the attrs and args redundant between ManageImage & ManageContainer; have one contain the other?
 class ManageImage(object):
     """ Manage a Docker image for `wc_env`
 
@@ -81,30 +81,27 @@ class ManageImage(object):
         self.name = name
         self.image_version = image_version
         self.verbose = verbose
-        '''
-        for k,v in os.environ.items():
-            if 'DOCK' in k:
-                print("{}={}".format(k,v))
-        '''
         self.docker_client = docker.from_env()
 
-    def build(self, path=None, push=False):
+    def build(self, path=None, fileobj=None, push=False):
         """ Build a Docker image for `wc_env`
 
         Args:
             path (:obj:`str`, optional): path to the directory containing the Dockerfile; default is
                 the current working directory
+            fileobj (:obj:`str`, optional): file object to use as the Dockerfile
             push (:obj:`bool`, optional): if True, push the image that's built to Docker Hub; default is False
 
         Returns:
             :obj:`type of return value`: description of return value
 
         Raises:
-            :obj:`type of raised exception(s)`: description of raised exceptions
+            :obj:`EnvError`: if both `path` and `fileobj` are set
         """
         # compile requirements for the image
-        # build the image; with pull set obtains an updated Ubuntu image
-        if path is None:
+        if path is not None and fileobj is not None:
+            raise EnvError("path '{}' and fileobj '{}' cannot both be set".format(path, fileobj))
+        if path is None and fileobj is None:
             path = os.getcwd()
         tag='karrlab/wc_env:{}'.format(self.image_version)
         buildargs = dict(
@@ -112,33 +109,32 @@ class ManageImage(object):
             version_py3=CONTAINER_DEFAULTS['python3_version'],
             version_openbabel=CONTAINER_DEFAULTS['version_openbabel'],
         )
-        # todo: test and handle other exceptions, e.g., with/wo image available, w/wo Internet on, etc.
         try:
             if self.verbose:
                 print("Running: docker_client.build(path={}, tag={}, etc.)".format(path, tag))
             print("Building Docker image; this may take awhile ...")
+            # build the image; setting pull obtains an updated image
             image,logs = self.docker_client.images.build(path=path,
+                fileobj=fileobj,
                 tag=tag,
                 buildargs=buildargs,
                 pull=True)
-        except requests.exceptions.ConnectionError as e:
+        except requests.exceptions.ConnectionError as e:    # pragma: no cover     # tested by hand
             raise EnvError("ConnectionError: Docker cannot build image: ensure that Docker is running: {}".format(e))
-        except docker.errors.BuildError as e:
-            raise EnvError("ConnectionError: Docker cannot build image: ensure that the Internet is connected: {}".format(e))
+        except docker.errors.BuildError as e:   # pragma: no cover     # tested by hand
+            raise EnvError("BuildError: Docker cannot build image: ensure that the Internet is connected: {}".format(e))
         except Exception as e:
-            print('type(e)', type(e))
             raise EnvError("Error: cannot build image: {}".format(e))
         self.image = image
-        for entry in logs:
-            if 'stream' in entry:
-                print(entry['stream'], end='')
-            '''
-            elif 'id' in entry and 'status' in entry:
-                print('{}: {}'.format(entry['id'], entry['status']))
-            '''
+        if self.verbose:
+            for entry in logs:
+                if 'stream' in entry:
+                    print(entry['stream'], end='')
+                elif 'id' in entry and 'status' in entry:
+                    print('{}: {}'.format(entry['id'], entry['status']))
         # todo: test the image
         # optionally, push to Docker Hub
-        pass
+        return image
 
 
 class ManageContainer(object):
