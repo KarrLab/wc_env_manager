@@ -234,7 +234,7 @@ class ManageContainer(object):
         Raises:
             :obj:`EnvError`: if the credentials are incomplete or incorrect
         """
-        # determine which files exist
+        # set attribute to None for credential files that don't exist
         credential_file_attrs = ['configs_repo_pwd_file', 'ssh_key', 'git_config_file']
         for attr in credential_file_attrs:
             file = getattr(self, attr)
@@ -257,19 +257,31 @@ class ManageContainer(object):
 
         # todo: test credentials against GitHub and the config repo
 
-    def create(self):
-        """ Create a Docker container for `wc_env`
+    def make_container_name(self):
+        """ Create a timestamped name for a `wc_env` Docker container
 
         Returns:
-            :obj:`docker.models.containers.Container`): the container created
+            :obj:`str`): the container name
+        """
+        return "{}_{}".format(CONTAINER_DEFAULTS['wc_env_container_name_prefix'],
+            datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
+
+    def create(self, name=None):
+        """ Create a Docker container for `wc_env`
+
+        Args:
+            name (:obj:`str`, optional): the container's name; default provided by ``
+
+        Returns:
+            :obj:`docker.models.containers.Container`): the container created `make_container_name()`
 
         Raises:
             :obj:`docker.errors.APIError`: description of raised exceptions
         """
-        # todo after image stored on Hub: pull the Docker wc_env image from Docker Hub
-        # create a unique container name
-        self.container_name = "{}_{}".format(CONTAINER_DEFAULTS['wc_env_container_name_prefix'],
-            datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
+        # todo: after image stored on Hub: pull the Docker wc_env image from Docker Hub
+        self.container_name = name
+        if name is None:
+            self.container_name = self.make_container_name()
 
         # create the container that shares r/w access to local WC repos
         env_image = "karrlab/{}:{}".format(self.image_name, self.image_version)

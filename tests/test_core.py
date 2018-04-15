@@ -129,17 +129,22 @@ class TestManageContainer(unittest.TestCase):
         # use mkdtemp() instead of TemporaryDirectory() so files can be saved for debugging containers
         #   after testing by setting `remove_temp_files`
 
-        # put temp dir in /private/tmp which can contain a Docker volume by default
+        # put test_dir in /private/tmp which can contain a Docker volume by default
         self.test_dir = tempfile.mkdtemp(dir='/private/tmp')
         self.temp_dir_in_home  = \
             tempfile.mkdtemp(dir=os.path.abspath(os.path.expanduser('~/tmp')))
         self.test_dir_in_home = os.path.join('~/tmp', os.path.basename(self.temp_dir_in_home))
         self.relative_path_file = os.path.join('tests', 'fixtures', 'relative_path_file.txt')
+
         self.absolute_path_file = os.path.join(os.getcwd(), self.relative_path_file)
-        self.relative_temp_path = tempfile.mkdtemp(dir=os.path.join('tests', 'tmp'))
         self.moving_text = 'I Have a Dream'
         with open(self.absolute_path_file, 'w') as f:
             f.write(self.moving_text)
+
+        tmp_dir = os.path.join(os.path.dirname(__file__), 'tmp')
+        if not os.path.exists(tmp_dir):
+            os.mkdir(tmp_dir)
+        self.relative_temp_path = tempfile.mkdtemp(dir=tmp_dir)
 
         self.sample_repo = os.path.join(os.path.dirname(__file__), 'fixtures', 'sample_repo')
         self.test_wc_repos = [
@@ -172,14 +177,15 @@ class TestManageContainer(unittest.TestCase):
         # remove temp files
         remove_temp_files = True
         if remove_temp_files:
-            shutil.rmtree(self.relative_temp_path)
+            shutil.rmtree(os.path.dirname(self.relative_temp_path))
             shutil.rmtree(self.test_dir)
             shutil.rmtree(self.temp_dir_in_home)
 
     @classmethod
     def tearDownClass(cls):
-        DockerUtils.list_all()
-        pass
+        list_all_containers = False
+        if list_all_containers:
+            DockerUtils.list_all()
 
     def make_test_repo(self, relative_path):
         # copy contents of self.sample_repo to a test repo at `relative_path`
@@ -202,9 +208,11 @@ class TestManageContainer(unittest.TestCase):
             wc_env.ManageContainer([self.absolute_path_file], '0.1')
         repo_a = os.path.join(self.temp_dir_in_home, 'repo_a')
         with self.assertRaises(wc_env.EnvError):
+            # redundant repos
             wc_env.ManageContainer([repo_a, repo_a], '0.1')
         os.chmod(repo_a, 0)
         with self.assertRaises(wc_env.EnvError):
+            # unreadable repo
             wc_env.ManageContainer([repo_a], '0.1')
         os.chmod(repo_a, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
@@ -247,6 +255,21 @@ class TestManageContainer(unittest.TestCase):
             container_REPO_NAME_file = os.path.join(container_wc_repo_dir, 'REPO_NAME')
             DockerUtils.cmp_files(self, self.container, container_REPO_NAME_file,
                 host_file_content=os.path.basename(local_wc_repo))
+
+        # just ssh_key
+        manage_container = wc_env.ManageContainer([], '0.0.1', git_config_file=None)
+        self.tmp_container_managers.append(manage_container)
+        manage_container.create()
+
+        # just .gitconfig
+        manage_container = wc_env.ManageContainer([], '0.0.1', ssh_key=None)
+        self.tmp_container_managers.append(manage_container)
+        manage_container.create()
+
+    def test_create_exceptions(self):
+        manage_container = wc_env.ManageContainer([], '0.0.1')
+        with self.assertRaises(wc_env.EnvError):
+            manage_container.create(name='bad container name, spaces not legal')
 
     def test_cp(self):
         with self.assertRaises(subprocess.CalledProcessError):
