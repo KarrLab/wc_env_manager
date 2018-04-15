@@ -126,9 +126,10 @@ class TestManageImage(unittest.TestCase):
 class TestManageContainer(unittest.TestCase):
 
     def setUp(self):
-        # use mkdtemp() instead of TemporaryDirectory() so files can be saved after
-        # testing to debug containers by setting `remove_temp_files`
-        # put in temp dir in /private/tmp which can contain a Docker volume by default
+        # use mkdtemp() instead of TemporaryDirectory() so files can be saved for debugging containers
+        #   after testing by setting `remove_temp_files`
+
+        # put temp dir in /private/tmp which can contain a Docker volume by default
         self.test_dir = tempfile.mkdtemp(dir='/private/tmp')
         self.temp_dir_in_home  = \
             tempfile.mkdtemp(dir=os.path.abspath(os.path.expanduser('~/tmp')))
@@ -155,6 +156,9 @@ class TestManageContainer(unittest.TestCase):
         self.docker_client = docker.from_env()
         # ManageContainers with created containers that need to be removed
         self.tmp_container_managers = []
+
+        self.manage_container = self.make_container(wc_repos=self.test_wc_repos)
+        self.container = self.manage_container.create()
 
     def tearDown(self):
         # remove containers created by these tests
@@ -233,28 +237,27 @@ class TestManageContainer(unittest.TestCase):
                 configs_repo_pwd_file=test_no_such_file, ssh_key=test_no_such_file)
 
     def test_create(self):
-        # test ManageContainer.create()
-        manage_container = self.make_container(wc_repos=self.test_wc_repos)
-        container = manage_container.create()
         # spot-check files in the 3 repos in the container
-        for local_wc_repo in manage_container.local_wc_repos:
-            container_wc_repo_dir = os.path.join(manage_container.container_repo_dir,
+        for local_wc_repo in self.manage_container.local_wc_repos:
+            container_wc_repo_dir = os.path.join(self.manage_container.container_repo_dir,
                 os.path.basename(local_wc_repo))
             container_core_py_file = os.path.join(container_wc_repo_dir, 'tests/requirements.txt')
-            DockerUtils.cmp_files(self, container, container_core_py_file,
+            DockerUtils.cmp_files(self, self.container, container_core_py_file,
                 host_filename=os.path.join(self.sample_repo, 'tests/requirements.txt'))
             container_REPO_NAME_file = os.path.join(container_wc_repo_dir, 'REPO_NAME')
-            DockerUtils.cmp_files(self, container, container_REPO_NAME_file,
+            DockerUtils.cmp_files(self, self.container, container_REPO_NAME_file,
                 host_file_content=os.path.basename(local_wc_repo))
+
+    def test_cp(self):
         with self.assertRaises(subprocess.CalledProcessError):
             # it is an error if DEST_PATH does not exist and ends with /
-            manage_container.cp(self.absolute_path_file, '/root/tmp/no such dir/')
+            self.manage_container.cp(self.absolute_path_file, '/root/tmp/no such dir/')
         path_in_container = os.path.join('/tmp/', os.path.basename(self.absolute_path_file))
-        manage_container.cp(self.absolute_path_file, path_in_container)
-        DockerUtils.cmp_files(self, manage_container.container, path_in_container, host_file_content=self.moving_text)
+        self.manage_container.cp(self.absolute_path_file, path_in_container)
+        DockerUtils.cmp_files(self, self.manage_container.container, path_in_container, host_file_content=self.moving_text)
 
-        # test pp_to_karr_lab_repos
-        pythonpath = manage_container.pp_to_karr_lab_repos()
+    def test_pp_to_karr_lab_repos(self):
+        pythonpath = self.manage_container.pp_to_karr_lab_repos()
         for wc_repo_path in self.test_wc_repos:
             wc_repo = os.path.basename(wc_repo_path)
             self.assertIn(wc_repo, pythonpath)
