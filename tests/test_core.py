@@ -232,7 +232,8 @@ class TestWCenv(unittest.TestCase):
                 'fixtures/docker_files/simple_busybox_Dockerfile'), 'rb') as dockerfile_fileobj:
                 image = manage_image.build(fileobj=dockerfile_fileobj)
                 self.assertTrue(type(image), docker.models.images.Image)
-                expected_output = ['Running: docker_client.build',
+                expected_output = ['Docker build command: docker build --pull --file',
+                    'Running: docker_client.build',
                     'Successfully built',]
                 for line in expected_output:
                     self.assertIn(line, capturer.get_text())

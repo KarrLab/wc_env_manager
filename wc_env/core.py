@@ -7,6 +7,7 @@
 """
 
 import os
+import io
 from datetime import datetime
 from pathlib import Path
 import tempfile
@@ -180,17 +181,42 @@ class WCenv(object):
 
         # todo: test credentials against GitHub and the config repo
 
+    def build_command(self, path, fileobj, tag, buildargs):
+        """ Prepare `docker build` command line that is equivalent to `WCenv.build()`
+
+        One of `path` and `fileobj` must be not `None`.
+
+        Args:
+            path (:obj:`str`): path to the directory containing the Dockerfile, or `None`
+            fileobj (:obj:`io.BufferedReader`): file object to use as the Dockerfile, or `None`
+            tag (:obj:`str`): file object to use as the Dockerfile, or `None`
+            buildargs (:obj:`dict`): file object to use as the Dockerfile, or `None`
+
+        Returns:
+            :obj:`str`: a `docker build` command line equivalent to `WCenv.build()`
+        """
+        cmd = ['docker', 'build', '--pull']
+        if path is not None:
+            cmd.append("--file {}".format(os.path.join(path, 'Dockerfile')))
+        if fileobj is not None:
+            cmd.append("--file {}".format(fileobj.name))
+        for k,v in buildargs.items():
+            cmd.append("--build-arg {}={}".format(k,v))
+        # todo: figure out how to specify the context
+        cmd.append(".")
+        return ' '.join(cmd)
+
     def build(self, path=None, fileobj=None, push=False):
         """ Build a Docker image for `wc_env`
 
         Args:
             path (:obj:`str`, optional): path to the directory containing the Dockerfile; default is
                 the current working directory
-            fileobj (:obj:`str`, optional): file object to use as the Dockerfile
+            fileobj (:obj:``, optional): file object to use as the Dockerfile
             push (:obj:`bool`, optional): if True, push the image that's built to Docker Hub; default is False
 
         Returns:
-            :obj:`type of return value`: description of return value
+            :obj:`docker.models.images.Image`): the Docker image created
 
         Raises:
             :obj:`EnvError`: if both `path` and `fileobj` are set
@@ -206,6 +232,8 @@ class WCenv(object):
             version_py3=CONTAINER_DEFAULTS['python3_version'],
             version_openbabel=CONTAINER_DEFAULTS['version_openbabel'],
         )
+        if self.verbose:
+            print('Docker build command:', self.build_command(path, fileobj, tag, buildargs))
         try:
             if self.verbose:
                 print("Running: docker_client.build(path={}, tag={}, etc.)".format(path, tag))
@@ -216,10 +244,11 @@ class WCenv(object):
                 tag=tag,
                 buildargs=buildargs,
                 pull=True)
+        # todo: automate these tests
         except requests.exceptions.ConnectionError as e:    # pragma: no cover     # tested by hand
             raise EnvError("ConnectionError: Docker cannot build image: ensure that Docker is running: {}".format(e))
         except docker.errors.BuildError as e:   # pragma: no cover     # tested by hand
-            raise EnvError("BuildError: Docker cannot build image: ensure that the Internet is connected: {}".format(e))
+            raise EnvError("BuildError: Docker cannot build image: check the Internet connection and the Dockerfile: {}".format(e))
         except Exception as e:
             raise EnvError("Error: cannot build image: {}".format(e))
         self.image = image
