@@ -43,6 +43,7 @@ class EnvError(Error):
 # todo: use configs_repo_pwd_file if ssh_key not available
 # todo: use a regular user, not /root/: see 'Use USER' section of http://www.projectatomic.io/docs/docker-image-author-guidance/
 # todo: replace CONTAINER_DEFAULTS with defaults in a config file
+# todo: handle git branching; allow specification of branches as well as repos
 CONTAINER_DEFAULTS = dict(
     ssh_key='~/.ssh/id_rsa_github',     # an ssh key that accesses karr_lab_repo_root, and doesn't need a passphrase
     configs_repo_username='karr-lab-daemon-public',

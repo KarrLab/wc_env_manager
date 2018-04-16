@@ -22,9 +22,10 @@ below for more details.
 Installing `wc_env`
 -------------------------------------
 
-`wc_env` only requires only four pieces of software on your computer: `Python`, the `cement` Python package, `Docker`, and `wc_env` itself. These lightweight requirements make `wc_env` very portable. Install them from these locations:
+`wc_env` only requires only four pieces of software on your computer: `Python`, `git`, the `cement` Python package, `Docker`, and `wc_env` itself. These lightweight requirements make `wc_env` very portable. Install them from these locations:
 
 * `Python <https://www.python.org/downloads/>`_, version 3.5 or later
+* `git <https://git-scm.com/downloads>`_
 * `cement <http://cement.readthedocs.io/en/latest/dev/installation/>`_
 * `Docker Community Edition <https://docs.docker.com/install/>_`
 * `wc_env <https://github.com/KarrLab/wc_env>_`
