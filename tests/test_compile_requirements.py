@@ -177,7 +177,6 @@ not line continuation: trailing white space\\
         ##############
         # TODO
         # method to delete repos
-        # respond to GitHub email
         ##############
 
     def test_create_repository(self):
