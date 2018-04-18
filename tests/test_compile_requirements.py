@@ -162,6 +162,7 @@ not line continuation: trailing white space\\
         cmd = "git remote add origin git@github.com:{}/{}.git".format(user, name)
         self.run_subprocess(cmd.split(), cwd=repo_dir)
 
+        # todo: try to use the github_api_token, so this test is easier to configure
         # configure git to use an ssh command that uses the key provided
         # requires git 2.10+; see https://stackoverflow.com/a/38474220/509882
         cmd = ['git', 'config', 'core.sshCommand', "ssh -i {} -F /dev/null".format(
