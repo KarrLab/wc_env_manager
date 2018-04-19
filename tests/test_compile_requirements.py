@@ -153,9 +153,12 @@ not line continuation: trailing white space\\
 
         # create repo on GitHub
         # use curl and a GitHub 'Personal access token'
-        # curl --user artgoldberg:PERSONAL_ACCESS_TOKEN https://api.github.com/user/repos --data {"name":"REPO_NAME"}
+        # curl --user artgoldberg:PERSONAL_ACCESS_TOKEN  --data {"name":"REPO_NAME"} https://api.github.com/user/repos
+        # explicitly request GitHub API v3 with Accept header
         cmd = ['curl', '--user', '{}:{}'.format(user, github_api_token),
-            'https://api.github.com/user/repos', '--data', "{\"name\":\""  + name + "\"}"]
+            '--header',  'Accept: application/vnd.github.v3+json',
+            '--data', "{\"name\":\""  + name + "\"}",
+            'https://api.github.com/user/repos']
         curl_rv = self.run_subprocess(cmd, cwd=repo_dir)
 
         # configure remote
@@ -174,13 +177,9 @@ not line continuation: trailing white space\\
         self.run_subprocess("git push -u origin master".split(), cwd=repo_dir)
 
         return (repo_dir, curl_rv)
-        ##############
-        # TODO
-        # method to delete repos
-        ##############
+        # TODO: method to delete repos
 
     def test_create_repository(self):
-        # self.create_repository('test_repo_3', dir)
         req_files_n_lines = {}
         req_files_n_lines['requirements.txt'] = ['docker', 'capturer', 'git', 'foo']
         req_files_n_lines['docs/requirements.txt'] = ['sphinx', 'foo', 'bar']
@@ -190,16 +189,21 @@ not line continuation: trailing white space\\
         github_api_token = open(github_api_token_file, 'r').readline().strip()
         ssh_github_key_file = os.path.expanduser('~/.ssh/id_rsa_github')
         username = 'artgoldberg'
-
-        for i in range(1, 5):
-            repo_name = 'test_repo_{}'.format(i)
-            repo_dir, curl_rv = self.create_repository(repo_name, req_files_n_lines, username,
-                github_api_token, ssh_github_key_file)
-            print(curl_rv)
+        repo_name = 'test_repo_e'
+        repo_dir, curl_rv = self.create_repository(repo_name, req_files_n_lines, username,
+            github_api_token, ssh_github_key_file)
+        self.assertIn('"name": "{}"'.format(repo_name), curl_rv)
+        self.assertNotIn("Repository creation failed.", curl_rv)
 
     def run_subprocess(self, command, cwd=None):
         result = subprocess.run(command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         result.stdout = result.stdout.decode('utf-8')
         result.stderr = result.stderr.decode('utf-8')
         result.check_returncode()
+        '''
+        print()
+        print('command:\n', command)
+        print('joined command:\n', ' '.join(command))
+        print('result.stdout:\n', result.stdout)
+        '''
         return result.stdout

@@ -38,6 +38,7 @@ class EnvError(Error):
         super().__init__(message)
 
 
+# todo: ensure that pytest and pytest-cov are installed by pip
 # todo: use logging
 # todo: clarify terminology for cloned & local WC/KarrLab repos
 # todo: use configs_repo_pwd_file if ssh_key not available
