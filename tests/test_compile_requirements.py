@@ -123,10 +123,12 @@ not line continuation: trailing white space\\
         # test all_requirements()
 
     def create_repository(self, name, requirements_files, user, github_api_token, ssh_github_key_file):
-        """ Create a Git repository with specified requirements files
+        """ Create a GitHub repository with specified requirements files
+
+        Use only command line `git` and `curl` and the Python standard library.
 
         Args:
-            name (:obj`str`): package name
+            name (:obj`str`): repository name
             requirements_files (:obj`dict`): some requirements files and their content
             user (:obj`str`): name of the GitHub user
             github_api_token (:obj`str`): GitHub 'Personal access token' for the user
@@ -177,7 +179,23 @@ not line continuation: trailing white space\\
         self.run_subprocess("git push -u origin master".split(), cwd=repo_dir)
 
         return (repo_dir, curl_rv)
-        # TODO: method to delete repos
+
+    def delete_repository(self, name, user, github_api_token):
+        """ Delete a GitHub repository
+
+        CAUTION: permanently deletes a repository, with no recourse for recovery!
+
+        Args:
+            name (:obj`str`): repository name
+            user (:obj`str`): name of the GitHub user
+            github_api_token (:obj`str`): GitHub 'Personal access token' for the user; must have
+                delete_repo access for `user`
+        """
+        # curl -i -u username -d '{"scopes":["public_repo"]}' https://api.github.com/authorizations
+        cmd = ['curl', '--user', '{}:{}'.format(user, github_api_token),
+            '--header', 'Accept: application/vnd.github.v3+json',
+            '--request', 'DELETE', 'https://api.github.com/repos/{}/{}'.format(user, name)]
+        self.run_subprocess(cmd)
 
     def test_create_repository(self):
         req_files_n_lines = {}
@@ -189,7 +207,7 @@ not line continuation: trailing white space\\
         github_api_token = open(github_api_token_file, 'r').readline().strip()
         ssh_github_key_file = os.path.expanduser('~/.ssh/id_rsa_github')
         username = 'artgoldberg'
-        repo_name = 'test_repo_e'
+        repo_name = 'test_repo_f'
         repo_dir, curl_rv = self.create_repository(repo_name, req_files_n_lines, username,
             github_api_token, ssh_github_key_file)
         self.assertIn('"name": "{}"'.format(repo_name), curl_rv)
@@ -200,10 +218,8 @@ not line continuation: trailing white space\\
         result.stdout = result.stdout.decode('utf-8')
         result.stderr = result.stderr.decode('utf-8')
         result.check_returncode()
-        '''
         print()
         print('command:\n', command)
         print('joined command:\n', ' '.join(command))
         print('result.stdout:\n', result.stdout)
-        '''
         return result.stdout
