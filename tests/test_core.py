@@ -16,7 +16,13 @@ import subprocess
 import sys
 import tempfile
 import unittest
-import wc_env_manager
+import wc_env_manager.core
+
+
+class WcEnvManagerTestCase(unittest.TestCase):
+    def test_pull_docker_image(self):
+        mgr = wc_env_manager.core.WcEnvManager()
+        self.assertIsInstance(mgr.pull_docker_image(), docker.models.images.Image)
 
 
 class DockerUtils(object):
@@ -60,8 +66,8 @@ class DockerUtils(object):
             return output.decode('utf-8')
         else:
             raise wc_env_manager.WcEnvManagerError("{}:{}: cat {} fails with exit_code {} "
-                                  "this is a Docker system race condition; rerun test".format(
-                                      frameinfo.filename, frameinfo.lineno, file, exit_code))
+                                                   "this is a Docker system race condition; rerun test".format(
+                                                       frameinfo.filename, frameinfo.lineno, file, exit_code))
 
     @staticmethod
     def cmp_files(testcase, container, container_filename, host_file_content=None, host_filename=None):
@@ -192,7 +198,7 @@ class WcEnvTestCase(unittest.TestCase):
     def do_check_credentials(self, test_configs_repo_pwd_file, expected):
         # check WcEnv.check_credentials()
         manage_container = wc_env_manager.WcEnv([], '0.1',
-                                        configs_repo_pwd_file=test_configs_repo_pwd_file)
+                                                configs_repo_pwd_file=test_configs_repo_pwd_file)
         manage_container.check_credentials()
         self.assertEqual(manage_container.configs_repo_pwd_file, expected)
 
@@ -215,7 +221,7 @@ class WcEnvTestCase(unittest.TestCase):
         # no credentials
         with self.assertRaises(wc_env_manager.WcEnvManagerError):
             manage_container = wc_env_manager.WcEnv([], '0.1',
-                                            configs_repo_pwd_file=test_no_such_file, ssh_key=test_no_such_file)
+                                                    configs_repo_pwd_file=test_no_such_file, ssh_key=test_no_such_file)
 
     def test_build(self):
         manage_image = wc_env_manager.WcEnv([], '0.0.1', verbose=True)
