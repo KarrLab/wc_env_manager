@@ -12,6 +12,7 @@ import mock
 import unittest
 
 
+@unittest.skip('Not yet implemented')
 class MainTestCase(unittest.TestCase):
 
     def test_cli(self):
