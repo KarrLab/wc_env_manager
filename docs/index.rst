@@ -1,5 +1,5 @@
-`wc_env_manager`: Tools for managing computing environments for WC modeling
-=========================================================================
+`wc_env_manager`: Tools for managing computing environments for whole-cell modeling
+===================================================================================
 
 `wc_env_manager` helps modelers and software developers setup computing environments for developing, testing, and running whole-cell (WC) models and WC modeling software. This eliminates the need for each modeler and software developer to install and configure the numerous dependencies required for WC modeling. This helps modelers and software developers focus on developing WC models and software tools rather than on installing and maintaining complicated dependencies.
 
