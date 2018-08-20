@@ -16,19 +16,8 @@ import requests
 import subprocess
 
 
-class Error(Exception):
+class WcEnvError(Exception):
     """ Base class for exceptions in `wc_env`
-
-    Attributes:
-        message (:obj:`str`): the exception's message
-    """
-
-    def __init__(self, message=None):
-        super().__init__(message)
-
-
-class EnvError(Error):
-    """ Exception raised for errors in `wc_env`
 
     Attributes:
         message (:obj:`str`): the exception's message
@@ -116,7 +105,7 @@ class WcEnv(object):
             verbose (:obj:`bool`, optional): if True, produce verbose output
 
         Raises:
-            :obj:`EnvError`: if any local_wc_repos are not readable directories or are provided repeatedly
+            :obj:`WcEnvError`: if any local_wc_repos are not readable directories or are provided repeatedly
         """
         # resolve local_wc_repos as absolute paths
         self.local_wc_repos = []
@@ -136,7 +125,7 @@ class WcEnv(object):
             repo_names.add(repo_name)
             self.local_wc_repos.append(path)
         if errors:
-            raise EnvError(', '.join(errors))
+            raise WcEnvError(', '.join(errors))
 
         self.image_version = image_version
         self.image_name = image_name
@@ -363,7 +352,7 @@ class WcEnv(object):
         Local KarrLab repos mounted on volumes come ahead of cloned KarrLab repos.
 
         Returns:
-            :obj:`str`): `PYTHONPATH` export command
+            :obj:`str`: `PYTHONPATH` export command
         """
         pythonpath = []
         # paths for mounted local wc_repos
