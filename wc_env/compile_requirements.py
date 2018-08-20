@@ -16,8 +16,10 @@ import tempfile
 
 
 # todo: move this to config
-KARR_LAB_GIT_HUB_URL='git+https://github.com/karrlab/'
+KARR_LAB_GIT_HUB_URL = 'git+https://github.com/karrlab/'
 # for all wc_repos not already known, get their requirements, continuing until all repos are searched
+
+
 class CompileRequirements(object):
 
     @staticmethod
@@ -48,9 +50,9 @@ class CompileRequirements(object):
         """
         # obtain all requirements from requirement(s) files in repo
         requirements_files = ['requirements.txt',
-            'tests/requirements.txt',
-            'docs/requirements.txt',
-            'requirements.optional.txt']
+                              'tests/requirements.txt',
+                              'docs/requirements.txt',
+                              'requirements.optional.txt']
         requirements_lines = []
         for requirements_file in requirements_files:
             requirements_path = os.path.join(repo, requirements_file)

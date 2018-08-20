@@ -12,7 +12,7 @@ import mock
 import unittest
 
 
-class TestCore(unittest.TestCase):
+class MainTestCase(unittest.TestCase):
 
     def test_cli(self):
         with mock.patch('sys.argv', ['wc_env', '--help']):

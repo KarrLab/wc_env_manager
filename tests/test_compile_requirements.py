@@ -1,21 +1,21 @@
 """
+:Author: Jonathan Karr <jonrkarr@gmail.com>
 :Author: Arthur Goldberg <Arthur.Goldberg@mssm.edu>
 :Date: 2018-03-31
 :Copyright: 2018, Karr Lab
 :License: MIT
 """
 
-import unittest
+from wc_env.compile_requirements import CompileRequirements
 import os
-import sys
-import tempfile
 import shutil
 import subprocess
+import sys
+import tempfile
+import unittest
 
-from wc_env.compile_requirements import CompileRequirements
 
-
-class TestCompileRequirements(unittest.TestCase):
+class CompileRequirementsTestCase(unittest.TestCase):
 
     def setUp(self):
         self.debug = True
@@ -101,7 +101,7 @@ not line continuation: trailing white space\\
         # make all the requirements files for a repo
         wc_repo_root = self.get_repo_dir(repo_name)
         os.mkdir(wc_repo_root)
-        for req_file,lines in req_files_n_lines.items():
+        for req_file, lines in req_files_n_lines.items():
             self.make_requirements_file(wc_repo_root, req_file, lines)
         return wc_repo_root
 
@@ -184,9 +184,9 @@ not line continuation: trailing white space\\
         # use curl and a GitHub 'Personal access token'
         # explicitly request GitHub API v3 with Accept header
         cmd = ['curl', '--user', '{}:{}'.format(user, github_api_token),
-            '--header',  'Accept: application/vnd.github.v3+json',
-            '--data', "{\"name\":\""  + name + "\"}",
-            'https://api.github.com/user/repos']
+               '--header',  'Accept: application/vnd.github.v3+json',
+               '--data', "{\"name\":\"" + name + "\"}",
+               'https://api.github.com/user/repos']
         curl_rv = self.run_subprocess(cmd, cwd=repo_dir)
 
         # configure remote
@@ -218,8 +218,8 @@ not line continuation: trailing white space\\
                 delete_repo access for `user`
         """
         cmd = ['curl', '--user', '{}:{}'.format(user, github_api_token),
-            '--header', 'Accept: application/vnd.github.v3+json',
-            '--request', 'DELETE', 'https://api.github.com/repos/{}/{}'.format(user, name)]
+               '--header', 'Accept: application/vnd.github.v3+json',
+               '--request', 'DELETE', 'https://api.github.com/repos/{}/{}'.format(user, name)]
         self.run_subprocess(cmd)
         # todo: raise exception if deletion fails
 
@@ -233,16 +233,16 @@ not line continuation: trailing white space\\
         # List your repositories: List repositories that are accessible to the authenticated user.
         # GET /user/repos
         cmd = ['curl', '--user', '{}:{}'.format(username, github_api_token),
-            '--header',  'Accept: application/vnd.github.v3+json',
-            'https://api.github.com//user/repos']
+               '--header',  'Accept: application/vnd.github.v3+json',
+               'https://api.github.com//user/repos']
         curl_rv = self.run_subprocess(cmd)
         print('List repositories that are accessible to the authenticated user', curl_rv)
 
         # List user repositories: List public repositories for the specified user.
         # GET /users/:username/repos
         cmd = ['curl',
-            '--header',  'Accept: application/vnd.github.v3+json',
-            'https://api.github.com//users/{}/repos'.format(username)]
+               '--header',  'Accept: application/vnd.github.v3+json',
+               'https://api.github.com//users/{}/repos'.format(username)]
         curl_rv = self.run_subprocess(cmd)
         print('List public repositories for the specified user.', curl_rv)
 
@@ -254,7 +254,7 @@ not line continuation: trailing white space\\
         repo_name = 'test_repo_a'
         username, github_api_token, ssh_github_key_file = self.github_credentials()
         repo_dir, curl_rv = self.create_github_repository(repo_name, username,
-            github_api_token, ssh_github_key_file)
+                                                          github_api_token, ssh_github_key_file)
         self.assertIn('"name": "{}"'.format(repo_name), curl_rv)
         self.assertNotIn("Repository creation failed.", curl_rv)
         username, github_api_token, _ = self.github_credentials(delete_token=True)

@@ -1,21 +1,19 @@
 """ wc_env
 
 :Author: Arthur Goldberg <Arthur.Goldberg@mssm.edu>
-:Date: 2018-04-04
+:Author: Jonathan Karr <jonrkarr@gmail.com>
+:Date: 2018-08-20
 :Copyright: 2018, Karr Lab
 :License: MIT
 """
 
-import os
-import io
 from datetime import datetime
 from pathlib import Path
-import tempfile
-import logging
-import subprocess
-
+import io
 import docker
+import os
 import requests
+import subprocess
 
 
 class Error(Exception):
@@ -24,6 +22,7 @@ class Error(Exception):
     Attributes:
         message (:obj:`str`): the exception's message
     """
+
     def __init__(self, message=None):
         super().__init__(message)
 
@@ -34,6 +33,7 @@ class EnvError(Error):
     Attributes:
         message (:obj:`str`): the exception's message
     """
+
     def __init__(self, message=None):
         super().__init__(message)
 
@@ -63,7 +63,7 @@ CONTAINER_DEFAULTS = dict(
 )
 
 
-class WCenv(object):
+class WcEnv(object):
     """ Manage a Docker image and container for `wc_env`
 
     Attributes:
@@ -87,18 +87,18 @@ class WCenv(object):
     """
 
     def __init__(self,
-        local_wc_repos,
-        image_version,
-        image_name=CONTAINER_DEFAULTS['docker_image_name'],
-        python3_version=CONTAINER_DEFAULTS['python3_version'],
-        container_repo_dir=CONTAINER_DEFAULTS['container_repo_dir'],
-        container_user_home_dir=CONTAINER_DEFAULTS['container_user_home_dir'],
-        container_local_repos=CONTAINER_DEFAULTS['container_local_repos'],
-        configs_repo_username=CONTAINER_DEFAULTS['configs_repo_username'],
-        configs_repo_pwd_file=CONTAINER_DEFAULTS['configs_repo_pwd_file'],
-        ssh_key=CONTAINER_DEFAULTS['ssh_key'],
-        git_config_file=CONTAINER_DEFAULTS['git_config_file'],
-        verbose=False):
+                 local_wc_repos,
+                 image_version,
+                 image_name=CONTAINER_DEFAULTS['docker_image_name'],
+                 python3_version=CONTAINER_DEFAULTS['python3_version'],
+                 container_repo_dir=CONTAINER_DEFAULTS['container_repo_dir'],
+                 container_user_home_dir=CONTAINER_DEFAULTS['container_user_home_dir'],
+                 container_local_repos=CONTAINER_DEFAULTS['container_local_repos'],
+                 configs_repo_username=CONTAINER_DEFAULTS['configs_repo_username'],
+                 configs_repo_pwd_file=CONTAINER_DEFAULTS['configs_repo_pwd_file'],
+                 ssh_key=CONTAINER_DEFAULTS['ssh_key'],
+                 git_config_file=CONTAINER_DEFAULTS['git_config_file'],
+                 verbose=False):
         """
         Args:
             local_wc_repos (:obj:`list` of `str`): directories of local KarrLab repos being modified
@@ -179,12 +179,12 @@ class WCenv(object):
         # ensure that credentials are available
         if self.configs_repo_pwd_file is None and self.ssh_key is None:
             raise EnvError("No credentials available: either an ssh key or the password "
-                "to KarrLab/karr_lab_config must be provided.")
+                           "to KarrLab/karr_lab_config must be provided.")
 
         # todo: test credentials against GitHub and the config repo
 
     def build_command(self, path, fileobj, tag, buildargs):
-        """ Prepare `docker build` command line that is equivalent to `WCenv.build()`
+        """ Prepare `docker build` command line that is equivalent to `WcEnv.build()`
 
         One of `path` and `fileobj` must be not `None`.
 
@@ -195,15 +195,15 @@ class WCenv(object):
             buildargs (:obj:`dict`): file object to use as the Dockerfile, or `None`
 
         Returns:
-            :obj:`str`: a `docker build` command line equivalent to `WCenv.build()`
+            :obj:`str`: a `docker build` command line equivalent to `WcEnv.build()`
         """
         cmd = ['docker', 'build', '--pull']
         if path is not None:
             cmd.append("--file {}".format(os.path.join(path, 'Dockerfile')))
         if fileobj is not None:
             cmd.append("--file {}".format(fileobj.name))
-        for k,v in buildargs.items():
-            cmd.append("--build-arg {}={}".format(k,v))
+        for k, v in buildargs.items():
+            cmd.append("--build-arg {}={}".format(k, v))
         # todo: figure out how to specify the context
         cmd.append(".")
         return ' '.join(cmd)
@@ -214,7 +214,7 @@ class WCenv(object):
         Args:
             path (:obj:`str`, optional): path to the directory containing the Dockerfile; default is
                 the current working directory
-            fileobj (:obj:``, optional): file object to use as the Dockerfile
+            fileobj (:obj:`io.TextIOWrapper`, optional): file object to use as the Dockerfile
             push (:obj:`bool`, optional): if True, push the image that's built to Docker Hub; default is False
 
         Returns:
@@ -228,7 +228,7 @@ class WCenv(object):
             raise EnvError("path '{}' and fileobj '{}' cannot both be set".format(path, fileobj))
         if path is None and fileobj is None:
             path = os.getcwd()
-        tag='karrlab/wc_env:{}'.format(self.image_version)
+        tag = 'karrlab/wc_env:{}'.format(self.image_version)
         buildargs = dict(
             version_py2=CONTAINER_DEFAULTS['python2_version'],
             version_py3=CONTAINER_DEFAULTS['python3_version'],
@@ -241,11 +241,11 @@ class WCenv(object):
                 print("Running: docker_client.build(path={}, tag={}, etc.)".format(path, tag))
             print("Building Docker image; this may take awhile ...")
             # build the image; setting pull obtains an updated FROM image
-            image,logs = self.docker_client.images.build(path=path,
-                fileobj=fileobj,
-                tag=tag,
-                buildargs=buildargs,
-                pull=True)
+            image, logs = self.docker_client.images.build(path=path,
+                                                          fileobj=fileobj,
+                                                          tag=tag,
+                                                          buildargs=buildargs,
+                                                          pull=True)
         # todo: automate these tests
         except requests.exceptions.ConnectionError as e:    # pragma: no cover     # tested by hand
             raise EnvError("ConnectionError: Docker cannot build image: ensure that Docker is running: {}".format(e))
@@ -271,7 +271,7 @@ class WCenv(object):
             :obj:`str`): the container name
         """
         return "{}_{}".format(CONTAINER_DEFAULTS['wc_env_container_name_prefix'],
-            datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
+                              datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
 
     def create(self, name=None):
         """ Create a Docker container for `wc_env`
@@ -305,11 +305,11 @@ class WCenv(object):
             if self.verbose:
                 print("Running: containers.run({}, name='{}', etc.)".format(env_image, self.container_name))
             self.container = self.docker_client.containers.run(env_image, command='bash',
-                name=self.container_name,
-                volumes=self.volumes,
-                stdin_open=True,
-                tty=True,
-                detach=True)
+                                                               name=self.container_name,
+                                                               volumes=self.volumes,
+                                                               stdin_open=True,
+                                                               tty=True,
+                                                               detach=True)
         except requests.exceptions.ConnectionError as e:    # pragma: no cover     # tested by hand
             raise EnvError("ConnectionError: Docker cannot run container: ensure that Docker is running: {}".format(e))
         except Exception as e:
@@ -333,7 +333,7 @@ class WCenv(object):
         Raises:
             :obj:`EnvError`: if pip commands fail
         """
-        major,minor,_ = self.python3_version.split('.')
+        major, minor, _ = self.python3_version.split('.')
         python_version_major_minor = "{}.{}".format(major, minor)
         print('pip install pkg_utils --')
         cmd = "pip{} install -U --process-dependency-links "\
@@ -353,7 +353,7 @@ class WCenv(object):
             :obj:`EnvError`: if mkdir or git commands fail
         """
         self.exec_run("mkdir {}".format(self.container_local_repos))
-        for wc_repo in WCenv.all_wc_repos():
+        for wc_repo in WcEnv.all_wc_repos():
             cmd = "git clone https://github.com/KarrLab/{}.git".format(wc_repo)
             self.exec_run(cmd, workdir=self.container_local_repos)
 
@@ -372,7 +372,7 @@ class WCenv(object):
             pythonpath.append(os.path.join(self.container_repo_dir, local_wc_repo_basename))
 
         # paths for repos cloned into container
-        for wc_repo in WCenv.all_wc_repos():
+        for wc_repo in WcEnv.all_wc_repos():
             pythonpath.append(os.path.join(self.container_local_repos, wc_repo))
 
         rv = 'export PYTHONPATH="$PYTHONPATH:{}"'.format(':'.join(pythonpath))
@@ -523,15 +523,15 @@ class WCenv(object):
         Raises:
             :obj:`EnvError`: if `self.container.exec_run` fails
         """
-        kws = ', '.join(['{}={}'.format(k,v) for k,v in kwargs.items()])
+        kws = ', '.join(['{}={}'.format(k, v) for k, v in kwargs.items()])
         if kws:
             kws = ', ' + kws
         if self.verbose:
             print("Running: container.exec_run({}{})".format(command, kws))
-        exit_code,output = self.container.exec_run(command.split(), **kwargs)
-        if exit_code!=0:
+        exit_code, output = self.container.exec_run(command.split(), **kwargs)
+        if exit_code != 0:
             raise EnvError("{}:\nself.container.exec_run({}{}) receives exit_code {}".format(__file__,
-                command, kws, exit_code))
+                                                                                             command, kws, exit_code))
         return output.decode('utf-8')
 
     @staticmethod
@@ -542,5 +542,5 @@ class WCenv(object):
             :obj:`list` of `str`): list of names of all WC repos
         """
         # :todo: get these repos programatically
-        ALL_WC_REPOS='wc_lang wc_sim wc_utils obj_model wc_kb kinetic_datanator wc_rules'
+        ALL_WC_REPOS = 'wc_lang wc_sim wc_utils obj_model wc_kb kinetic_datanator wc_rules'
         return ALL_WC_REPOS.split()
