@@ -207,7 +207,7 @@ class WcEnvManager(object):
             push (:obj:`bool`, optional): if True, push the image that's built to Docker Hub; default is False
 
         Returns:
-            :obj:`docker.models.images.Image`): the Docker image created
+            :obj:`docker.models.images.Image`: the Docker image created
 
         Raises:
             :obj:`WcEnvManagerError`: if both `path` and `fileobj` are set
@@ -257,7 +257,7 @@ class WcEnvManager(object):
         """ Create a timestamped name for a `wc_env_manager` Docker container
 
         Returns:
-            :obj:`str`): the container name
+            :obj:`str`: the container name
         """
         return "{}_{}".format(CONTAINER_DEFAULTS['wc_env_container_name_prefix'],
                               datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
@@ -269,7 +269,7 @@ class WcEnvManager(object):
             name (:obj:`str`, optional): the container's name; default provided by ``
 
         Returns:
-            :obj:`docker.models.containers.Container`): the container created `make_container_name()`
+            :obj:`docker.models.containers.Container`: the container created `make_container_name()`
 
         Raises:
             :obj:`docker.errors.APIError`: description of raised exceptions
@@ -371,7 +371,7 @@ class WcEnvManager(object):
         """ Run a Docker container for `wc_env_manager`
 
         Returns:
-            :obj:`docker.models.containers.Container`): the running container
+            :obj:`docker.models.containers.Container`: the running container
         """
         container = self.create()
         self.load_karr_lab_tools()
@@ -528,7 +528,7 @@ class WcEnvManager(object):
         """ Get all WC repos
 
         Returns:
-            :obj:`list` of `str`): list of names of all WC repos
+            :obj:`list` of `str`: list of names of all WC repos
         """
         # :todo: get these repos programatically
         ALL_WC_REPOS = 'wc_lang wc_sim wc_utils obj_model wc_kb kinetic_datanator wc_rules'
