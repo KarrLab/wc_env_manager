@@ -1,13 +1,15 @@
-""" Test wc_env_manager.core
+""" Tests for wc_env_manager.core
 
 :Author: Arthur Goldberg <Arthur.Goldberg@mssm.edu>
-:Date: 2018-04-04
+:Author: Jonathan Karr <jonrkarr@gmail.com>
+:Date: 2018-08-20
 :Copyright: 2018, Karr Lab
 :License: MIT
 """
 
 from capturer import CaptureOutput
 from inspect import currentframe, getframeinfo
+import datetime
 import docker
 import os
 import shutil
@@ -20,9 +22,22 @@ import wc_env_manager.core
 
 
 class WcEnvManagerTestCase(unittest.TestCase):
+    def setUp(self):
+        self.mgr = wc_env_manager.core.WcEnvManager()
+
     def test_pull_docker_image(self):
-        mgr = wc_env_manager.core.WcEnvManager()
+        mgr = self.mgr
         self.assertIsInstance(mgr.pull_docker_image(), docker.models.images.Image)
+
+    # def test_create_docker_container(self):
+    #    mgr = self.mgr
+    #    mgr.pull_docker_image()
+    #    mgr.
+
+    def test_make_docker_container_name(self):
+        mgr = self.mgr
+        mgr.docker_container_name_format = 'wc_env-%Y'
+        self.assertEqual(mgr.make_docker_container_name(), 'wc_env-{}'.format(datetime.datetime.now().year))
 
 
 class DockerUtils(object):
