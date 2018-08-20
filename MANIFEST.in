@@ -1,5 +1,5 @@
 # description
-README.rst
+include README.rst
 
 # version
 include wc_env_manager/VERSION
@@ -10,3 +10,6 @@ include LICENSE
 # requirements
 include requirements.txt
 include requirements.optional.txt
+
+# configuration files
+recursive-include wc_env_manager *.cfg
