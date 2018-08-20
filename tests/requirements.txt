@@ -1,3 +1,2 @@
 capturer # to capture standard output in tests
-# mock # to mock python classes and methods
-docker
+mock # to mock python classes and methods
