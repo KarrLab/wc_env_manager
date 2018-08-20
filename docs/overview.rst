@@ -31,9 +31,9 @@ How `wc_env_manager` works
   These bottom two layers are loaded into a `wc_env_manager` Docker image.
 * At the bottom, a Docker container running Ubuntu Linux
 
--------------------------------------
+---------------------------------------
 Precautions when using `wc_env_manager`
--------------------------------------
+---------------------------------------
 
 Shared volumes
 
