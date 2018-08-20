@@ -1,4 +1,4 @@
-""" wc_env command line interface
+""" wc_env_manager command line interface
 
 :Author: Arthur Goldberg <Arthur.Goldberg@mssm.edu>
 :Date: 2018-04-04
@@ -8,8 +8,8 @@
 
 from cement.core.foundation import CementApp
 from cement.core.controller import CementBaseController, expose
-import wc_env
-import wc_env.core
+import wc_env_manager
+import wc_env_manager.core
 
 
 class BaseController(CementBaseController):
@@ -17,7 +17,7 @@ class BaseController(CementBaseController):
 
     class Meta:
         label = 'base'
-        description = "wc_env"
+        description = "wc_env_manager"
 
     @expose(help='command_1 description')
     def command_1(self):
@@ -32,7 +32,7 @@ class BaseController(CementBaseController):
     @expose(help='Get version')
     def get_version(self):
         """ Get version """
-        print(wc_env.__version__)
+        print(wc_env_manager.__version__)
 
 
 class Command3WithArgumentsController(CementBaseController):
@@ -66,7 +66,7 @@ class Command3WithArgumentsController(CementBaseController):
 class App(CementApp):
     """ Command line application """
     class Meta:
-        label = 'wc_env'
+        label = 'wc_env_manager'
         base_controller = 'base'
         handlers = [
             BaseController,

@@ -130,7 +130,7 @@ class CompileRequirements(object):
         return sorted(list(required_repos))
 
     '''
-    Determine all Python requirements for a wc_env image being built, which are the union of:
+    Determine all Python requirements for a wc_env_manager image being built, which are the union of:
     1. the Python requirements for the active local wc repos
     2. the requirements for all other KarrLab wc repos (the KarrLab repos minus the local wc repos)
     todo: #2 can be narrowed by determining all requirements for the active local wc repos, recursively.
@@ -148,7 +148,7 @@ class CompileRequirements(object):
     '''
 
     def all_requirements(self, local_wc_repo_paths, karr_lab_wc_repos, karr_lab_git_hub_url=KARR_LAB_GIT_HUB_URL):
-        """ Determine all Python requirements for a wc_env image being built
+        """ Determine all Python requirements for a wc_env_manager image being built
 
         Args:
             local_wc_repo_paths (:obj:`list` of `str`): full pathnames of local KarrLab repos being modified

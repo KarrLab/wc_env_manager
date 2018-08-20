@@ -1,4 +1,4 @@
-""" wc_env
+""" wc_env_manager
 
 :Author: Arthur Goldberg <Arthur.Goldberg@mssm.edu>
 :Author: Jonathan Karr <jonrkarr@gmail.com>
@@ -17,7 +17,7 @@ import subprocess
 
 
 class WcEnvError(Exception):
-    """ Base class for exceptions in `wc_env`
+    """ Base class for exceptions in `wc_env_manager`
 
     Attributes:
         message (:obj:`str`): the exception's message
@@ -48,12 +48,12 @@ CONTAINER_DEFAULTS = dict(
     karr_lab_repo_root='https://GitHub.com/KarrLab/',
     container_user_home_dir='/root/',
     container_local_repos='/usr/local_repos/',
-    wc_env_container_name_prefix='wc_env',
+    wc_env_container_name_prefix='wc_env_manager',
 )
 
 
 class WcEnv(object):
-    """ Manage a Docker image and container for `wc_env`
+    """ Manage a Docker image and container for `wc_env_manager`
 
     Attributes:
         local_wc_repos (:obj:`list` of `str`): directories of local KarrLab repos being modified
@@ -144,7 +144,7 @@ class WcEnv(object):
         self.check_credentials()
 
     def check_credentials(self):
-        """ Validate the credentials needed in a Docker container for `wc_env`
+        """ Validate the credentials needed in a Docker container for `wc_env_manager`
 
         Raises:
             :obj:`EnvError`: if the credentials are incomplete or incorrect
@@ -198,7 +198,7 @@ class WcEnv(object):
         return ' '.join(cmd)
 
     def build(self, path=None, fileobj=None, push=False):
-        """ Build a Docker image for `wc_env`
+        """ Build a Docker image for `wc_env_manager`
 
         Args:
             path (:obj:`str`, optional): path to the directory containing the Dockerfile; default is
@@ -217,7 +217,7 @@ class WcEnv(object):
             raise EnvError("path '{}' and fileobj '{}' cannot both be set".format(path, fileobj))
         if path is None and fileobj is None:
             path = os.getcwd()
-        tag = 'karrlab/wc_env:{}'.format(self.image_version)
+        tag = 'karrlab/wc_env_manager:{}'.format(self.image_version)
         buildargs = dict(
             version_py2=CONTAINER_DEFAULTS['python2_version'],
             version_py3=CONTAINER_DEFAULTS['python3_version'],
@@ -254,7 +254,7 @@ class WcEnv(object):
         return image
 
     def make_container_name(self):
-        """ Create a timestamped name for a `wc_env` Docker container
+        """ Create a timestamped name for a `wc_env_manager` Docker container
 
         Returns:
             :obj:`str`): the container name
@@ -263,7 +263,7 @@ class WcEnv(object):
                               datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
 
     def create(self, name=None):
-        """ Create a Docker container for `wc_env`
+        """ Create a Docker container for `wc_env_manager`
 
         Args:
             name (:obj:`str`, optional): the container's name; default provided by ``
@@ -274,7 +274,7 @@ class WcEnv(object):
         Raises:
             :obj:`docker.errors.APIError`: description of raised exceptions
         """
-        # todo: after image stored on Hub: pull the Docker wc_env image from Docker Hub
+        # todo: after image stored on Hub: pull the Docker wc_env_manager image from Docker Hub
         self.container_name = name
         if name is None:
             self.container_name = self.make_container_name()
@@ -368,7 +368,7 @@ class WcEnv(object):
         return rv
 
     def run(self):
-        """ Run a Docker container for `wc_env`
+        """ Run a Docker container for `wc_env_manager`
 
         Returns:
             :obj:`docker.models.containers.Container`): the running container
@@ -380,7 +380,7 @@ class WcEnv(object):
         return container
 
     def use(self, arg_1, arg_2, kwarg_1=None, kwarg_2=None):
-        """ Use an existing Docker container for `wc_env`
+        """ Use an existing Docker container for `wc_env_manager`
 
         Args:
             arg_1 (:obj:`type of arg_1`): description of arg_1
@@ -398,7 +398,7 @@ class WcEnv(object):
         pass
 
     def stop(self, arg_1, arg_2, kwarg_1=None, kwarg_2=None):
-        """ Stop a running Docker container for `wc_env`
+        """ Stop a running Docker container for `wc_env_manager`
 
         Args:
             arg_1 (:obj:`type of arg_1`): description of arg_1
@@ -416,7 +416,7 @@ class WcEnv(object):
         pass
 
     def delete(self, arg_1, arg_2, kwarg_1=None, kwarg_2=None):
-        """ Delete a previously built Docker container for `wc_env`
+        """ Delete a previously built Docker container for `wc_env_manager`
 
         Args:
             arg_1 (:obj:`type of arg_1`): description of arg_1
@@ -434,7 +434,7 @@ class WcEnv(object):
         pass
 
     def report(self, arg_1, arg_2, kwarg_1=None, kwarg_2=None):
-        """ Report on the status of a `wc_env` Docker container
+        """ Report on the status of a `wc_env_manager` Docker container
 
         Args:
             arg_1 (:obj:`type of arg_1`): description of arg_1
@@ -452,7 +452,7 @@ class WcEnv(object):
         pass
 
     def refresh(self, arg_1, arg_2, kwarg_1=None, kwarg_2=None):
-        """ Refresh a `wc_env` Docker container
+        """ Refresh a `wc_env_manager` Docker container
 
         Args:
             arg_1 (:obj:`type of arg_1`): description of arg_1
@@ -471,7 +471,7 @@ class WcEnv(object):
 
     # utility functions and methods
     def cp(self, path, dest_dir):
-        """ Copy a file or directory into the `wc_env` Docker container
+        """ Copy a file or directory into the `wc_env_manager` Docker container
 
         Use the command `docker cp path dest_dir` to copy path.
 
