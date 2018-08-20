@@ -1,4 +1,4 @@
-""" Test wc_env.core
+""" Test wc_env_manager.core
 
 :Author: Arthur Goldberg <Arthur.Goldberg@mssm.edu>
 :Date: 2018-04-04
@@ -16,7 +16,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-import wc_env
+import wc_env_manager
 
 
 class DockerUtils(object):
@@ -59,7 +59,7 @@ class DockerUtils(object):
         if exit_code == 0:
             return output.decode('utf-8')
         else:
-            raise wc_env.EnvError("{}:{}: cat {} fails with exit_code {} "
+            raise wc_env_manager.EnvError("{}:{}: cat {} fails with exit_code {} "
                                   "this is a Docker system race condition; rerun test".format(
                                       frameinfo.filename, frameinfo.lineno, file, exit_code))
 
@@ -169,7 +169,7 @@ class WcEnvTestCase(unittest.TestCase):
             f.write(os.path.basename(test_repo))
 
     def test_constructor(self):
-        manage_container = wc_env.WcEnv(self.test_wc_repos, '0.1')
+        manage_container = wc_env_manager.WcEnv(self.test_wc_repos, '0.1')
         expected_repo_paths = [
             os.path.join(self.temp_dir_in_home, 'repo_a'),
             os.path.join(self.test_dir, 'repo_b'),
@@ -177,21 +177,21 @@ class WcEnvTestCase(unittest.TestCase):
         ]
         for computed_path, expected_path in zip(manage_container.local_wc_repos, expected_repo_paths):
             self.assertEqual(computed_path, expected_path)
-        with self.assertRaises(wc_env.EnvError):
-            wc_env.WcEnv([self.absolute_path_file], '0.1')
+        with self.assertRaises(wc_env_manager.EnvError):
+            wc_env_manager.WcEnv([self.absolute_path_file], '0.1')
         repo_a = os.path.join(self.temp_dir_in_home, 'repo_a')
-        with self.assertRaises(wc_env.EnvError):
+        with self.assertRaises(wc_env_manager.EnvError):
             # redundant repos
-            wc_env.WcEnv([repo_a, repo_a], '0.1')
+            wc_env_manager.WcEnv([repo_a, repo_a], '0.1')
         os.chmod(repo_a, 0)
-        with self.assertRaises(wc_env.EnvError):
+        with self.assertRaises(wc_env_manager.EnvError):
             # unreadable repo
-            wc_env.WcEnv([repo_a], '0.1')
+            wc_env_manager.WcEnv([repo_a], '0.1')
         os.chmod(repo_a, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
     def do_check_credentials(self, test_configs_repo_pwd_file, expected):
         # check WcEnv.check_credentials()
-        manage_container = wc_env.WcEnv([], '0.1',
+        manage_container = wc_env_manager.WcEnv([], '0.1',
                                         configs_repo_pwd_file=test_configs_repo_pwd_file)
         manage_container.check_credentials()
         self.assertEqual(manage_container.configs_repo_pwd_file, expected)
@@ -213,20 +213,20 @@ class WcEnvTestCase(unittest.TestCase):
         self.do_check_credentials(test_no_such_file, None)
 
         # no credentials
-        with self.assertRaises(wc_env.EnvError):
-            manage_container = wc_env.WcEnv([], '0.1',
+        with self.assertRaises(wc_env_manager.EnvError):
+            manage_container = wc_env_manager.WcEnv([], '0.1',
                                             configs_repo_pwd_file=test_no_such_file, ssh_key=test_no_such_file)
 
     def test_build(self):
-        manage_image = wc_env.WcEnv([], '0.0.1', verbose=True)
-        with self.assertRaises(wc_env.EnvError):
+        manage_image = wc_env_manager.WcEnv([], '0.0.1', verbose=True)
+        with self.assertRaises(wc_env_manager.EnvError):
             with open(os.path.join(os.path.dirname(__file__),
                                    'fixtures/docker_files/bad_Dockerfile'), 'rb') as dockerfile_fileobj:
                 manage_image.build(fileobj=dockerfile_fileobj)
-        with self.assertRaises(wc_env.EnvError):
+        with self.assertRaises(wc_env_manager.EnvError):
             path = os.path.join(os.path.dirname(__file__), 'fixtures/docker_files/empty_dir')
             manage_image.build(path=path)
-        with self.assertRaises(wc_env.EnvError):
+        with self.assertRaises(wc_env_manager.EnvError):
             manage_image.build(path='dummy', fileobj='dummy')
         with CaptureOutput() as capturer:
             with open(os.path.join(os.path.dirname(__file__),
@@ -243,7 +243,7 @@ class WcEnvTestCase(unittest.TestCase):
         current = os.getcwd()
         docker_dir = os.path.join(os.path.dirname(__file__), 'fixtures/docker_files')
         os.chdir(docker_dir)
-        manage_image = wc_env.WcEnv([], '0.0.1')
+        manage_image = wc_env_manager.WcEnv([], '0.0.1')
         self.assertTrue(type(manage_image.build()), docker.models.images.Image)
         os.chdir(current)
 
@@ -260,18 +260,18 @@ class WcEnvTestCase(unittest.TestCase):
                                   host_file_content=os.path.basename(local_wc_repo))
 
         # just ssh_key
-        manage_container = wc_env.WcEnv([], '0.0.1', git_config_file=None)
+        manage_container = wc_env_manager.WcEnv([], '0.0.1', git_config_file=None)
         self.tmp_container_managers.append(manage_container)
         manage_container.create()
 
         # just .gitconfig
-        manage_container = wc_env.WcEnv([], '0.0.1', ssh_key=None)
+        manage_container = wc_env_manager.WcEnv([], '0.0.1', ssh_key=None)
         self.tmp_container_managers.append(manage_container)
         manage_container.create()
 
     def test_create_exceptions(self):
-        manage_container = wc_env.WcEnv([], '0.0.1')
-        with self.assertRaises(wc_env.EnvError):
+        manage_container = wc_env_manager.WcEnv([], '0.0.1')
+        with self.assertRaises(wc_env_manager.EnvError):
             manage_container.create(name='bad container name, spaces not legal')
 
     def test_cp(self):
@@ -287,11 +287,11 @@ class WcEnvTestCase(unittest.TestCase):
         for wc_repo_path in self.test_wc_repos:
             wc_repo = os.path.basename(wc_repo_path)
             self.assertIn(wc_repo, pythonpath)
-        for cloned_karr_lab_repo in wc_env.WcEnv.all_wc_repos():
+        for cloned_karr_lab_repo in wc_env_manager.WcEnv.all_wc_repos():
             self.assertIn(cloned_karr_lab_repo, pythonpath)
         for wc_repo_path in self.test_wc_repos:
             wc_repo = os.path.basename(wc_repo_path)
-            for cloned_karr_lab_repo in wc_env.WcEnv.all_wc_repos():
+            for cloned_karr_lab_repo in wc_env_manager.WcEnv.all_wc_repos():
                 self.assertTrue(pythonpath.index(wc_repo) <= pythonpath.index(cloned_karr_lab_repo))
 
     def make_container(self, wc_repos=None, save_container=False, verbose=False):
@@ -301,7 +301,7 @@ class WcEnvTestCase(unittest.TestCase):
         # set verbose to produce verbose output
         if wc_repos is None:
             wc_repos = []
-        manage_container = wc_env.WcEnv(wc_repos, '0.0.1', verbose=verbose)
+        manage_container = wc_env_manager.WcEnv(wc_repos, '0.0.1', verbose=verbose)
         container = manage_container.create()
         if save_container:
             print("docker attach {}".format(container.name))
@@ -329,7 +329,7 @@ class WcEnvTestCase(unittest.TestCase):
         manage_container.clone_karr_lab_repos()
         kl_repos = manage_container.exec_run('ls {}'.format(manage_container.container_local_repos))
         kl_repos = set(kl_repos.split('\n'))
-        self.assertTrue(set(wc_env.WcEnv.all_wc_repos()).issubset(kl_repos))
+        self.assertTrue(set(wc_env_manager.WcEnv.all_wc_repos()).issubset(kl_repos))
 
     @unittest.skipIf(DONT_RUN_SLOW_TESTS, "skipping slow tests")
     def test_run(self):
@@ -337,16 +337,16 @@ class WcEnvTestCase(unittest.TestCase):
         self.assertEqual(type(manage_container.run()), docker.models.containers.Container)
 
     def test_cp_exceptions(self):
-        manage_container = wc_env.WcEnv([], '0.0.1')
-        with self.assertRaises(wc_env.EnvError):
+        manage_container = wc_env_manager.WcEnv([], '0.0.1')
+        with self.assertRaises(wc_env_manager.EnvError):
             manage_container.cp(self.absolute_path_file, '')
-        with self.assertRaises(wc_env.EnvError):
+        with self.assertRaises(wc_env_manager.EnvError):
             manage_container.cp('no such file', '')
 
     def test_exec_run(self):
         with CaptureOutput(relay=False) as capturer:
             manage_container = self.make_container(verbose=True)
-            with self.assertRaises(wc_env.EnvError):
+            with self.assertRaises(wc_env_manager.EnvError):
                 manage_container.exec_run('no_such_command x')
             ls = set(manage_container.exec_run('ls').split('\n'))
             self.assertTrue(set('usr bin home tmp root etc lib'.split()).issubset(ls))

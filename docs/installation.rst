@@ -12,6 +12,6 @@ First, install the following requirements. Detailed installation instructions ar
 
 Installing the tatest revision from GitHub
 ------------------------------------------
-Second, run the following command to install the latest version of `wc_env` from GitHub::
+Second, run the following command to install the latest version of `wc_env_manager` from GitHub::
 
-    pip install git+git://github.com/KarrLab/wc_env.git#egg=wc_env
+    pip install git+git://github.com/KarrLab/wc_env_manager.git#egg=wc_env_manager

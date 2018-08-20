@@ -48,7 +48,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'wc_env'
+project = u'wc_env_manager'
 copyright = u'{}, Karr Lab'.format(datetime.datetime.now().year)
 author = u'Karr Lab'
 
@@ -57,7 +57,7 @@ author = u'Karr Lab'
 # built documents.
 #
 # The short X.Y version.
-filename = os.path.join(os.path.dirname(__file__), '..', 'wc_env', 'VERSION')
+filename = os.path.join(os.path.dirname(__file__), '..', 'wc_env_manager', 'VERSION')
 with open(filename, 'r') as file:
     version = file.read()
 # The full version, including alpha/beta/rc tags.
@@ -141,9 +141,9 @@ def linkcode_resolve(domain, info):
         return None
     rel_filename = info['module'].replace('.', '/')
     if os.path.isfile(os.path.join(os.path.dirname(__file__), '..', rel_filename + '.py')):
-        return "https://github.com/KarrLab/wc_env/blob/master/{}.py".format(rel_filename)
+        return "https://github.com/KarrLab/wc_env_manager/blob/master/{}.py".format(rel_filename)
     else:
-        return "https://github.com/KarrLab/wc_env/blob/master/{}/__init__.py".format(rel_filename)
+        return "https://github.com/KarrLab/wc_env_manager/blob/master/{}/__init__.py".format(rel_filename)
 
 
 # -- napoleon options -----------------------------------------------------
@@ -180,7 +180,7 @@ html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
 #
-# html_title = u'wc_env v0.0.1'
+# html_title = u'wc_env_manager v0.0.1'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 #
@@ -280,7 +280,7 @@ html_show_copyright = True
 # html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'wc_env-doc'
+htmlhelp_basename = 'wc_env_manager-doc'
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -306,7 +306,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'wc_env.tex', u'wc_env documentation',
+    (master_doc, 'wc_env_manager.tex', u'wc_env_manager documentation',
      u'Karr Lab', 'manual'),
 ]
 
@@ -348,7 +348,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'wc_env', u'wc_env documentation',
+    (master_doc, 'wc_env_manager', u'wc_env_manager documentation',
      [author], 1)
 ]
 
@@ -363,8 +363,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'wc_env', u'wc_env documentation',
-     author, 'wc_env', 'One line description of project.',
+    (master_doc, 'wc_env_manager', u'wc_env_manager documentation',
+     author, 'wc_env_manager', 'One line description of project.',
      'Miscellaneous'),
 ]
 

@@ -1,4 +1,4 @@
-""" Tests of wc_env command line interface (wc_env.__main__)
+""" Tests of wc_env_manager command line interface (wc_env_manager.__main__)
 
 :Author: Arthur Goldberg <Arthur.Goldberg@mssm.edu>
 :Date: 2018-04-04
@@ -6,7 +6,7 @@
 :License: MIT
 """
 
-from wc_env import __main__
+from wc_env_manager import __main__
 import capturer
 import mock
 import unittest
@@ -15,10 +15,10 @@ import unittest
 class MainTestCase(unittest.TestCase):
 
     def test_cli(self):
-        with mock.patch('sys.argv', ['wc_env', '--help']):
+        with mock.patch('sys.argv', ['wc_env_manager', '--help']):
             with self.assertRaises(SystemExit) as context:
                 __main__.main()
-                self.assertRegexpMatches(context.Exception, 'usage: wc_env')
+                self.assertRegexpMatches(context.Exception, 'usage: wc_env_manager')
 
     def test_help(self):
         with __main__.App(argv=['--help']) as app:

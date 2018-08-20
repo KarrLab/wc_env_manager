@@ -2,7 +2,7 @@
 README.rst
 
 # version
-include wc_env/VERSION
+include wc_env_manager/VERSION
 
 # license
 include LICENSE

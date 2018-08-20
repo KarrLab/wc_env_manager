@@ -7,7 +7,7 @@ except ImportError:
     import pkg_utils
 import os
 
-name = 'wc_env'
+name = 'wc_env_manager'
 dirname = os.path.dirname(__file__)
 package_data = {
     name: [

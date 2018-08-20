@@ -6,7 +6,7 @@
 :License: MIT
 """
 
-from wc_env.compile_requirements import CompileRequirements
+from wc_env_manager.compile_requirements import CompileRequirements
 import os
 import shutil
 import subprocess
@@ -147,7 +147,7 @@ not line continuation: trailing white space\\
         """
         # todo: get constants from params and config file
         username = 'artgoldberg'
-        # using 'token for testing wc_env'
+        # using 'token for testing wc_env_manager'
         filename = '../tokens/github_api_token'
         if delete_token:
             filename = '../tokens/github_api_delete_token'
