@@ -5,4 +5,4 @@ with open(pkg_resources.resource_filename('wc_env_manager', 'VERSION'), 'r') as 
     __version__ = file.read().strip()
 
 # API
-from .core import (EnvError, WcEnv)
+from .core import WcEnvManager, WcEnvManagerError

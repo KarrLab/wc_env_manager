@@ -16,7 +16,7 @@ import requests
 import subprocess
 
 
-class WcEnvError(Exception):
+class WcEnvManagerError(Exception):
     """ Base class for exceptions in `wc_env_manager`
 
     Attributes:
@@ -52,7 +52,7 @@ CONTAINER_DEFAULTS = dict(
 )
 
 
-class WcEnv(object):
+class WcEnvManager(object):
     """ Manage a Docker image and container for `wc_env_manager`
 
     Attributes:
@@ -105,7 +105,7 @@ class WcEnv(object):
             verbose (:obj:`bool`, optional): if True, produce verbose output
 
         Raises:
-            :obj:`WcEnvError`: if any local_wc_repos are not readable directories or are provided repeatedly
+            :obj:`WcEnvManagerError`: if any local_wc_repos are not readable directories or are provided repeatedly
         """
         # resolve local_wc_repos as absolute paths
         self.local_wc_repos = []
@@ -125,7 +125,7 @@ class WcEnv(object):
             repo_names.add(repo_name)
             self.local_wc_repos.append(path)
         if errors:
-            raise WcEnvError(', '.join(errors))
+            raise WcEnvManagerError(', '.join(errors))
 
         self.image_version = image_version
         self.image_name = image_name
@@ -147,7 +147,7 @@ class WcEnv(object):
         """ Validate the credentials needed in a Docker container for `wc_env_manager`
 
         Raises:
-            :obj:`EnvError`: if the credentials are incomplete or incorrect
+            :obj:`WcEnvManagerError`: if the credentials are incomplete or incorrect
         """
         # set attribute to None for credential files that don't exist
         credential_file_attrs = ['configs_repo_pwd_file', 'ssh_key', 'git_config_file']
@@ -167,7 +167,7 @@ class WcEnv(object):
 
         # ensure that credentials are available
         if self.configs_repo_pwd_file is None and self.ssh_key is None:
-            raise EnvError("No credentials available: either an ssh key or the password "
+            raise WcEnvManagerError("No credentials available: either an ssh key or the password "
                            "to KarrLab/karr_lab_config must be provided.")
 
         # todo: test credentials against GitHub and the config repo
@@ -210,11 +210,11 @@ class WcEnv(object):
             :obj:`docker.models.images.Image`): the Docker image created
 
         Raises:
-            :obj:`EnvError`: if both `path` and `fileobj` are set
+            :obj:`WcEnvManagerError`: if both `path` and `fileobj` are set
         """
         # compile requirements for the image
         if path is not None and fileobj is not None:
-            raise EnvError("path '{}' and fileobj '{}' cannot both be set".format(path, fileobj))
+            raise WcEnvManagerError("path '{}' and fileobj '{}' cannot both be set".format(path, fileobj))
         if path is None and fileobj is None:
             path = os.getcwd()
         tag = 'karrlab/wc_env_manager:{}'.format(self.image_version)
@@ -237,11 +237,11 @@ class WcEnv(object):
                                                           pull=True)
         # todo: automate these tests
         except requests.exceptions.ConnectionError as e:    # pragma: no cover     # tested by hand
-            raise EnvError("ConnectionError: Docker cannot build image: ensure that Docker is running: {}".format(e))
+            raise WcEnvManagerError("ConnectionError: Docker cannot build image: ensure that Docker is running: {}".format(e))
         except docker.errors.BuildError as e:   # pragma: no cover     # tested by hand
-            raise EnvError("BuildError: Docker cannot build image: check the Internet connection and the Dockerfile: {}".format(e))
+            raise WcEnvManagerError("BuildError: Docker cannot build image: check the Internet connection and the Dockerfile: {}".format(e))
         except Exception as e:
-            raise EnvError("Error: cannot build image: {}".format(e))
+            raise WcEnvManagerError("Error: cannot build image: {}".format(e))
         self.image = image
         if self.verbose:
             for entry in logs:
@@ -300,9 +300,9 @@ class WcEnv(object):
                                                                tty=True,
                                                                detach=True)
         except requests.exceptions.ConnectionError as e:    # pragma: no cover     # tested by hand
-            raise EnvError("ConnectionError: Docker cannot run container: ensure that Docker is running: {}".format(e))
+            raise WcEnvManagerError("ConnectionError: Docker cannot run container: ensure that Docker is running: {}".format(e))
         except Exception as e:
-            raise EnvError("Error: cannot run container: {}".format(e))
+            raise WcEnvManagerError("Error: cannot run container: {}".format(e))
 
         # load access credentials into the Docker container
         if self.ssh_key:
@@ -320,7 +320,7 @@ class WcEnv(object):
         """ Use pip to install KarrLab pkg_utils and karr_lab_build_utils in the container
 
         Raises:
-            :obj:`EnvError`: if pip commands fail
+            :obj:`WcEnvManagerError`: if pip commands fail
         """
         major, minor, _ = self.python3_version.split('.')
         python_version_major_minor = "{}.{}".format(major, minor)
@@ -339,7 +339,7 @@ class WcEnv(object):
         """ Use git to clone KarrLab GitHub repos into the container
 
         Raises:
-            :obj:`EnvError`: if mkdir or git commands fail
+            :obj:`WcEnvManagerError`: if mkdir or git commands fail
         """
         self.exec_run("mkdir {}".format(self.container_local_repos))
         for wc_repo in WcEnv.all_wc_repos():
@@ -485,14 +485,14 @@ class WcEnv(object):
             dest_dir (:obj:`str`): the container's directory which will store the copied file or directory
 
         Raises:
-            :obj:`EnvError`: if `path` does not exist or `container_name` has not been initialized
+            :obj:`WcEnvManagerError`: if `path` does not exist or `container_name` has not been initialized
             :obj:`subprocess.CalledProcessError`: if 'docker cp' fails; see error conditions in the docker documentation
         """
         # check path and self.container_name
         if not Path(path).exists():
-            raise EnvError("Error: path '{}' does not exist".format(path))
+            raise WcEnvManagerError("Error: path '{}' does not exist".format(path))
         if self.container_name is None or not self.container_name:
-            raise EnvError('Error: container_name not initialized')
+            raise WcEnvManagerError('Error: container_name not initialized')
         command = ['docker', 'cp', path, '{}:{}'.format(self.container_name, dest_dir)]
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         result.stdout = result.stdout.decode('utf-8')
@@ -510,7 +510,7 @@ class WcEnv(object):
             :obj:`str`: output of `exec_run`
 
         Raises:
-            :obj:`EnvError`: if `self.container.exec_run` fails
+            :obj:`WcEnvManagerError`: if `self.container.exec_run` fails
         """
         kws = ', '.join(['{}={}'.format(k, v) for k, v in kwargs.items()])
         if kws:
@@ -519,7 +519,7 @@ class WcEnv(object):
             print("Running: container.exec_run({}{})".format(command, kws))
         exit_code, output = self.container.exec_run(command.split(), **kwargs)
         if exit_code != 0:
-            raise EnvError("{}:\nself.container.exec_run({}{}) receives exit_code {}".format(__file__,
+            raise WcEnvManagerError("{}:\nself.container.exec_run({}{}) receives exit_code {}".format(__file__,
                                                                                              command, kws, exit_code))
         return output.decode('utf-8')
 
