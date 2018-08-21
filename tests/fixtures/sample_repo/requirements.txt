@@ -1,2 +1,2 @@
-cement # for command line programs
+cement >= 3.0.0 # for command line programs
 docker

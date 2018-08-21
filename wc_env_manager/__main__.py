@@ -6,36 +6,35 @@
 :License: MIT
 """
 
-from cement.core.foundation import CementApp
-from cement.core.controller import CementBaseController, expose
+import cement
 import wc_env_manager
 import wc_env_manager.core
 
 
-class BaseController(CementBaseController):
+class BaseController(cement.Controller):
     """ Base controller for command line application """
 
     class Meta:
         label = 'base'
         description = "wc_env_manager"
 
-    @expose(help='command_1 description')
+    @cement.ex(help='command_1 description')
     def command_1(self):
         """ command_1 description """
         pass
 
-    @expose(help='command_2 description')
+    @cement.ex(help='command_2 description')
     def command_2(self):
         """ command_2 description """
         pass
 
-    @expose(help='Get version')
+    @cement.ex(help='Get version')
     def get_version(self):
         """ Get version """
         print(wc_env_manager.__version__)
 
 
-class Command3WithArgumentsController(CementBaseController):
+class Command3WithArgumentsController(cement.Controller):
     """ Command3 description """
 
     class Meta:
@@ -54,8 +53,8 @@ class Command3WithArgumentsController(CementBaseController):
                 type=float, default=float('nan'), help='Description of opt-arg-4')),
         ]
 
-    @expose(hide=True)
-    def default(self):
+    @cement.ex(hide=True)
+    def _default(self):
         args = self.app.pargs
         args.arg_1
         args.arg_2
@@ -63,7 +62,7 @@ class Command3WithArgumentsController(CementBaseController):
         args.opt_arg_4
 
 
-class App(CementApp):
+class App(cement.App):
     """ Command line application """
     class Meta:
         label = 'wc_env_manager'

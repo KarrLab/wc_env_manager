@@ -9,8 +9,10 @@
 
 from capturer import CaptureOutput
 from inspect import currentframe, getframeinfo
+import capturer
 import datetime
 import docker
+import mock
 import os
 import shutil
 import stat
@@ -19,25 +21,249 @@ import sys
 import tempfile
 import unittest
 import wc_env_manager.core
+import whichcraft
+
+
+class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
+    def setUp(self):
+        self.remove_images()
+
+        docker_image_context_path = tempfile.mkdtemp()
+        dockerfile_path = os.path.join(docker_image_context_path, 'Dockerfile')
+        with open(dockerfile_path, 'w') as file:
+            file.write('FROM ubuntu\n')
+            file.write('CMD bash\n')
+
+        mgr = self.mgr = wc_env_manager.core.WcEnvManager(
+            docker_image_repo='karrlab/test',
+            docker_image_tags=['0.0.1', 'latest'],
+            dockerfile_path=dockerfile_path,
+            docker_image_context_path=docker_image_context_path)
+
+    def tearDown(self):
+        self.remove_images()
+        shutil.rmtree(self.mgr.docker_image_context_path)
+
+    def remove_images(self):
+        client = docker.from_env()
+        try:
+            client.images.remove('karrlab/test:0.0.1')
+        except docker.errors.ImageNotFound:
+            pass
+        try:
+            client.images.remove('karrlab/test:latest')
+        except docker.errors.ImageNotFound:
+            pass
+
+    def test_build_docker_image(self):
+        mgr = self.mgr
+
+        image = mgr.build_docker_image()
+        self.assertIsInstance(image, docker.models.images.Image)
+        self.assertEqual(
+            set(image.tags),
+            set([mgr.docker_image_repo + ':' + tag for tag in mgr.docker_image_tags]))
+
+        image = mgr._docker_client.images.get(mgr.docker_image_repo + ':' + mgr.docker_image_tags[0])
+        self.assertEqual(
+            set(image.tags),
+            set([mgr.docker_image_repo + ':' + tag for tag in mgr.docker_image_tags]))
+
+    def test_build_docker_image_verbose(self):
+        mgr = self.mgr
+        mgr.verbose = True
+        with capturer.CaptureOutput(relay=False) as capture_output:
+            mgr.build_docker_image()
+            self.assertRegex(capture_output.get_text(), r'Step 1/2 : FROM ubuntu')
+
+    def test_build_docker_image_context_error(self):
+        mgr = self.mgr
+
+        # introduce typo into Dockerfile
+        docker_image_context_path = mgr.docker_image_context_path
+        mgr.docker_image_context_path += '.null'
+
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, ' must be a directory'):
+            mgr.build_docker_image()
+
+        mgr.docker_image_context_path = docker_image_context_path
+
+    @unittest.skipUnless(whichcraft.which('systemctl'), 'Unable to stop Docker service')
+    def test_build_docker_image_connection_error(self):
+        mgr = self.mgr
+
+        # stop Docker service
+        subprocess.check_call(['systemctl', 'stop', 'docker'])
+
+        # check for error
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Docker connection error:'):
+            mgr.build_docker_image()
+
+        # restart Docker service
+        subprocess.check_call(['systemctl', 'start', 'docker'])
+
+    def test_build_docker_image_api_error(self):
+        mgr = self.mgr
+
+        # introduce typo into Dockerfile
+        with open(mgr.dockerfile_path, 'w') as file:
+            file.write('FROM2 ubuntu\n')
+            file.write('CMD bash\n')
+
+        # check for error
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Docker API error:'):
+            mgr.build_docker_image()
+
+    def test_build_docker_image_build_error(self):
+        mgr = self.mgr
+
+        # introduce typo into Dockerfile
+        with open(mgr.dockerfile_path, 'w') as file:
+            file.write('FROM ubuntu\n')
+            file.write('RUN exit 1')
+            file.write('CMD bash\n')
+
+        # check for error
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Docker build error:'):
+            mgr.build_docker_image()
+
+    def test_build_docker_image_other_error(self):
+        mgr = self.mgr
+
+        # introduce typo into Dockerfile
+        with mock.patch.object(docker.models.images.ImageCollection, 'build', side_effect=Exception('message')):
+            with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Exception:\n  message'):
+                mgr.build_docker_image()
+
+    def test_remove_docker_image(self):
+        mgr = self.mgr
+
+        image = mgr.build_docker_image()
+        for tag in mgr.docker_image_tags:
+            mgr._docker_client.images.get(mgr.docker_image_repo + ':' + tag)
+
+        mgr.remove_docker_image()
+        for tag in mgr.docker_image_tags:
+            with self.assertRaises(docker.errors.ImageNotFound):
+                mgr._docker_client.images.get(mgr.docker_image_repo + ':' + tag)
 
 
 class WcEnvManagerTestCase(unittest.TestCase):
     def setUp(self):
-        self.mgr = wc_env_manager.core.WcEnvManager()
+        mgr = self.mgr = wc_env_manager.core.WcEnvManager()
+        mgr.pull_docker_image()
+        mgr.remove_docker_containers(force=True)
+
+    def tearDown(self):
+        self.mgr.remove_docker_containers(force=True)
+
+    def test_login_dockerhub(self):
+        mgr = self.mgr
+        self.assertNotIn('docker.io', mgr._docker_client.api._auth_configs['auths'])
+        mgr.login_dockerhub()  # test for no runtime error
+        self.assertIn('docker.io', mgr._docker_client.api._auth_configs['auths'])
+
+    def test_push_docker_image(self):
+        mgr = self.mgr
+        mgr.login_dockerhub()
+        mgr.push_docker_image()
 
     def test_pull_docker_image(self):
         mgr = self.mgr
-        self.assertIsInstance(mgr.pull_docker_image(), docker.models.images.Image)
+        image = mgr.pull_docker_image()
+        self.assertIsInstance(image, docker.models.images.Image)
 
-    # def test_create_docker_container(self):
-    #    mgr = self.mgr
-    #    mgr.pull_docker_image()
-    #    mgr.
+    def test_set_docker_image(self):
+        mgr = self.mgr
+        image = mgr.get_latest_docker_image()
+
+        mgr._docker_image = None
+        mgr.set_docker_image(image)
+        self.assertEqual(mgr._docker_image, image)
+
+        mgr._docker_image = None
+        mgr.set_docker_image(image.tags[0])
+        self.assertEqual(mgr._docker_image, image)
+
+    def test_get_latest_docker_image(self):
+        mgr = self.mgr
+        image = mgr.get_latest_docker_image()
+        self.assertIsInstance(image, docker.models.images.Image)
+
+    def test_get_docker_image_version(self):
+        mgr = self.mgr
+        version = mgr.get_docker_image_version()
+        self.assertRegex(version, r'^\d+\.\d+\.\d+[a-z0A-Z-9]*$')
+
+    def test_create_docker_container(self):
+        mgr = self.mgr
+        container = mgr.create_docker_container()
+        self.assertIsInstance(container, docker.models.containers.Container)
 
     def test_make_docker_container_name(self):
         mgr = self.mgr
         mgr.docker_container_name_format = 'wc_env-%Y'
         self.assertEqual(mgr.make_docker_container_name(), 'wc_env-{}'.format(datetime.datetime.now().year))
+
+    @unittest.skip('todo')
+    def test_setup_docker_container(self):
+        pass
+
+    def test_set_docker_container(self):
+        mgr = self.mgr
+        container = mgr.create_docker_container()
+        self.assertEqual(mgr._docker_container, container)
+        self.assertEqual(mgr.get_latest_docker_container(), container)
+
+        mgr._docker_container = None
+        mgr.set_docker_container(container)
+        self.assertEqual(mgr._docker_container, container)
+
+        mgr._docker_container = None
+        mgr.set_docker_container(container.name)
+        self.assertEqual(mgr._docker_container, container)
+
+    def test_get_latest_docker_container(self):
+        mgr = self.mgr
+        container = mgr.create_docker_container()
+        self.assertEqual(mgr.get_latest_docker_container(), container)
+
+    def test_get_docker_containers(self):
+        mgr = self.mgr
+        container = mgr.create_docker_container()
+        containers = mgr.get_docker_containers()
+        self.assertEqual(containers, [container])
+
+    def test_get_docker_container_stats(self):
+        mgr = self.mgr
+        mgr.create_docker_container()
+        stats = mgr.get_docker_container_stats()
+        self.assertIsInstance(stats, dict)
+        self.assertIn('cpu_stats', stats)
+        self.assertIn('memory_stats', stats)
+
+    def test_stop_docker_container(self):
+        mgr = self.mgr
+        container = mgr.create_docker_container()
+        self.assertEqual(container.status, 'created')
+        mgr.stop_docker_container()
+        self.assertEqual(container.status, 'created')
+
+    def test_remove_docker_container(self):
+        mgr = self.mgr
+        container = mgr.create_docker_container()
+        self.assertNotEqual(mgr._docker_container, None)
+        mgr.remove_docker_container(force=True)
+        self.assertEqual(mgr._docker_container, None)
+        self.assertEqual(mgr.get_docker_containers(), [])
+
+    def test_remove_docker_containers(self):
+        mgr = self.mgr
+        container = mgr.create_docker_container()
+        self.assertNotEqual(mgr._docker_container, None)
+        mgr.remove_docker_containers(force=True)
+        self.assertEqual(mgr._docker_container, None)
+        self.assertEqual(mgr.get_docker_containers(), [])
 
 
 class DockerUtils(object):

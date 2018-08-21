@@ -6,15 +6,36 @@
 :License: MIT
 """
 
-import wc_env_manager.config.core
 import os
+import pathlib
 import pkg_resources
 import unittest
+import wc_env_manager.config.core
 
 
 class Test(unittest.TestCase):
 
     def test_get_config(self):
         config = wc_env_manager.config.core.get_config()
-        self.assertIn('ssh_key_path', config['wc_env_manager'])
-        self.assertIsInstance(config['wc_env_manager']['ssh_key_path'], str)
+        self.assertIn('docker_image_repo', config['wc_env_manager'])
+        self.assertIsInstance(config['wc_env_manager']['docker_image_repo'], str)
+
+    def test_get_config_extra(self):
+        extra = {
+            'wc_env_manager': {
+                'docker_image_build_args': {
+                    'timezone': 'America/Los_Angeles',
+                }
+            }}
+        config = wc_env_manager.config.core.get_config(extra=extra)
+        self.assertEqual(config['wc_env_manager']['docker_image_build_args']['timezone'], 'America/Los_Angeles')
+
+    def test_get_config_context(self):
+        extra = {
+            'wc_env_manager': {
+                'dockerfile_path': '${HOME}/Dockerfile',
+            },
+        }
+        config = wc_env_manager.config.core.get_config(extra=extra)
+        self.assertEqual(config['wc_env_manager']['dockerfile_path'],
+                         '{}/Dockerfile'.format(pathlib.Path.home()))
