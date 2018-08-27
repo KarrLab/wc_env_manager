@@ -166,7 +166,7 @@ class WcEnvManager(object):
         self._docker_client = docker.from_env()
 
         # get image and current container
-        self.set_docker_image(self.get_latest_docker_image())
+        self.set_docker_image(self.get_latest_docker_image(self.base_docker_image_repo))
         self.set_docker_container(self.get_latest_docker_container())
 
     def build_base_docker_image(self):
@@ -231,31 +231,43 @@ class WcEnvManager(object):
 
         return image
 
-    def remove_docker_image(self, force=False):
+    def remove_docker_image(self, image_repo, image_tags, force=False):
         """ Remove version of Docker image
+
         Args:
+            image_repo (:obj:`str`): image repository
+            image_tags (:obj:`list` of :obj:`str`): list of tags
             force (:obj:`bool`, optional): if :obj:`True`, force removal of the version of the
                 image (e.g. even if a container with the image is running)
         """
-        for tag in self.base_docker_image_tags:
-            self._docker_client.images.remove('{}:{}'.format(self.base_docker_image_repo, tag), force=True)
+        for tag in image_tags:
+            self._docker_client.images.remove('{}:{}'.format(image_repo, tag), force=True)
 
     def login_dockerhub(self):
         """ Login to DockerHub """
         self._docker_client.login(self.dockerhub_username, password=self.dockerhub_password)
 
-    def push_docker_image(self):
-        """ Push Docker image to DockerHub """
-        for tag in self.base_docker_image_tags:
-            self._docker_client.images.push(self.base_docker_image_repo, tag)
+    def push_docker_image(self, image_repo, image_tags):
+        """ Push Docker image to DockerHub 
+        
+        Args:
+            image_repo (:obj:`str`): image repository
+            image_tags (:obj:`list` of :obj:`str`): list of tags
+        """
+        for tag in image_tags:
+            self._docker_client.images.push(image_repo, tag)
 
-    def pull_docker_image(self):
+    def pull_docker_image(self, image_repo, image_tags):
         """ Pull Docker image for WC modeling environment
+
+        Args:
+            image_repo (:obj:`str`): image repository
+            image_tags (:obj:`list` of :obj:`str`): list of tags
 
         Returns:
             :obj:`docker.models.images.Image`: Docker image
         """
-        self._docker_image = self._docker_client.images.pull(self.base_docker_image_repo, tag=self.base_docker_image_tags[0])
+        self._docker_image = self._docker_client.images.pull(image_repo, tag=image_tags[0])
         return self._docker_image
 
     def set_docker_image(self, image):
@@ -269,14 +281,17 @@ class WcEnvManager(object):
             image = self._docker_client.images.get(image)
         self._docker_image = image
 
-    def get_latest_docker_image(self):
+    def get_latest_docker_image(self, image_repo):
         """ Get the lastest version of the Docker image for the WC modeling environment
+
+        Args:
+            image_repo (:obj:`str`): image repository
 
         Returns:
             :obj:`docker.models.images.Image`: Docker image
         """
         try:
-            return self._docker_client.images.get(self.base_docker_image_repo)
+            return self._docker_client.images.get(image_repo)
         except docker.errors.ImageNotFound:
             return None
 

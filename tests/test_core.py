@@ -144,7 +144,7 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
         for tag in mgr.base_docker_image_tags:
             mgr._docker_client.images.get(mgr.base_docker_image_repo + ':' + tag)
 
-        mgr.remove_docker_image()
+        mgr.remove_docker_image(mgr.base_docker_image_repo, mgr.base_docker_image_tags)
         for tag in mgr.base_docker_image_tags:
             with self.assertRaises(docker.errors.ImageNotFound):
                 mgr._docker_client.images.get(mgr.base_docker_image_repo + ':' + tag)
@@ -153,7 +153,7 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
 class WcEnvManagerTestCase(unittest.TestCase):
     def setUp(self):
         mgr = self.mgr = wc_env_manager.core.WcEnvManager()
-        mgr.pull_docker_image()
+        mgr.pull_docker_image(mgr.base_docker_image_repo, mgr.base_docker_image_tags)
         mgr.remove_docker_containers(force=True)
 
     def tearDown(self):
@@ -170,16 +170,16 @@ class WcEnvManagerTestCase(unittest.TestCase):
     def test_push_docker_image(self):
         mgr = self.mgr
         mgr.login_dockerhub()
-        mgr.push_docker_image()
+        mgr.push_docker_image(mgr.base_docker_image_repo, mgr.base_docker_image_tags)
 
     def test_pull_docker_image(self):
         mgr = self.mgr
-        image = mgr.pull_docker_image()
+        image = mgr.pull_docker_image(mgr.base_docker_image_repo, mgr.base_docker_image_tags)
         self.assertIsInstance(image, docker.models.images.Image)
 
     def test_set_docker_image(self):
         mgr = self.mgr
-        image = mgr.get_latest_docker_image()
+        image = mgr.get_latest_docker_image(mgr.base_docker_image_repo)
 
         mgr._docker_image = None
         mgr.set_docker_image(image)
@@ -191,7 +191,7 @@ class WcEnvManagerTestCase(unittest.TestCase):
 
     def test_get_latest_docker_image(self):
         mgr = self.mgr
-        image = mgr.get_latest_docker_image()
+        image = mgr.get_latest_docker_image(mgr.base_docker_image_repo)
         self.assertIsInstance(image, docker.models.images.Image)
 
     def test_get_docker_image_version(self):
