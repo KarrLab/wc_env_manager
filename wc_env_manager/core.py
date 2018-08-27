@@ -103,7 +103,6 @@ class WcEnvManager(object):
 
     # todo: reduce privileges in Docker image by creating separate user
     # todo: manipulate Python path for packages without setup.py
-    # todo: remove Mosek, XPRESS license files from Docker image and move to config repo
 
     def __init__(self,
                  base_docker_image_repo=None, base_docker_image_tags=None,
