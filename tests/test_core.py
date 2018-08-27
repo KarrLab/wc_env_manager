@@ -157,8 +157,8 @@ class WcEnvManagerTestCase(unittest.TestCase):
         mgr.remove_docker_containers(force=True)
 
     def tearDown(self):
-        #todo: remove
-        #self.mgr.remove_docker_containers(force=True)
+        # todo: remove
+        # self.mgr.remove_docker_containers(force=True)
         pass
 
     def test_login_dockerhub(self):
@@ -354,6 +354,20 @@ class WcEnvManagerTestCase(unittest.TestCase):
 
     @unittest.skipUnless(os.path.isdir(os.path.expanduser(os.path.join('~', '.wc'))),
                          'config files package must be installed')
+    def test_install_github_ssh_host_in_docker_container_upgrade(self):
+        mgr = self.mgr
+        mgr.create_docker_container()
+        mgr.copy_config_files_to_docker_container()
+        mgr.install_github_ssh_host_in_docker_container(upgrade=True)
+
+        _, temp_file_name = tempfile.mkstemp()
+        mgr.copy_path_from_docker_container('/root/.ssh/known_hosts', temp_file_name)
+        with open(temp_file_name, 'r') as file:
+            self.assertRegex(file.read(), r'github\.com ssh-rsa')
+        os.remove(temp_file_name)
+
+    @unittest.skipUnless(os.path.isdir(os.path.expanduser(os.path.join('~', '.wc'))),
+                         'config files package must be installed')
     def test_test_github_ssh_access_in_docker_container(self):
         mgr = self.mgr
         mgr.create_docker_container()
@@ -391,86 +405,27 @@ class WcEnvManagerTestCase(unittest.TestCase):
         mgr.python_packages_from_host = ''
         container = mgr.create_docker_container()
         mgr.setup_docker_container()
+        mgr.run_process_in_docker_container(['bash', '-c', 'rm ~/.gitconfig'])
 
         with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'No matching distribution'):
             mgr.install_python_packages_in_docker_container(
                 'undefined_package')
-
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Repository not found'):
+        
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'could not read Username'):
             mgr.install_python_packages_in_docker_container(
                 'git+https://github.com/KarrLab/undefined_package.git#egg=undefined_package-0.0.1[all]')
 
-        mgr.copy_config_files_to_docker_container()
+        mgr.copy_config_files_to_docker_container(overwrite=True)
+        mgr.run_process_in_docker_container(['bash', '-c', 'rm ~/.ssh/known_hosts'])
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Host key verification failed'):
+            mgr.install_python_packages_in_docker_container(
+                'git+https://github.com/KarrLab/undefined_package.git#egg=undefined_package-0.0.1[all]')
+
+        mgr.copy_config_files_to_docker_container(overwrite=True)
         mgr.install_github_ssh_host_in_docker_container()
         with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Repository not found'):
             mgr.install_python_packages_in_docker_container(
                 'git+https://github.com/KarrLab/undefined_package.git#egg=undefined_package-0.0.1[all]')
-
-    @unittest.skip('todo')
-    def test_run_python_code_in_docker_container(self):
-        pass
-
-    def test_test_python_code_in_docker_container(self):
-        mgr = self.mgr
-        mgr.paths_to_mount_to_docker_container = {
-            os.path.abspath('.'): {
-                'bind': '/root/host/Documents/wc_env_manager',
-                'mode': 'rw',
-                'remove_python_cache': True,
-            }
-        }
-        mgr.python_packages_from_github = ''
-        mgr.python_packages_from_host = '/root/host/Documents/wc_env_manager'
-        container = mgr.create_docker_container()
-        mgr.setup_docker_container()
-
-        temp_dir_name = tempfile.mkdtemp()
-
-        host_results_path = os.path.join(temp_dir_name, 'results.xml')
-        host_coverage_results_path = os.path.join(temp_dir_name, '.coverage')
-        host_coverage_html_report_path = os.path.join(temp_dir_name, 'htmlcov')
-
-        # test code in Docker container
-        mgr.verbose = True
-        with capturer.CaptureOutput(relay=False) as capture_output:
-            mgr.test_python_code_in_docker_container(
-                host_test_path='tests/test_core.py::ExampleTestCase',
-                test_name_search_expression='test',
-                capture_output=False,
-                host_results_path=host_results_path,
-                host_cover_paths=['wc_env_manager'],
-                host_coverage_results_path=host_coverage_results_path,
-                host_coverage_html_report_path=host_coverage_html_report_path)
-            self.assertRegex(capture_output.get_text(), '= 1 passed in \d+\.\d+ seconds =')
-
-        # assertions
-        self.assertTrue(os.path.isfile(host_results_path))
-        self.assertTrue(os.path.isfile(host_coverage_results_path))
-        self.assertTrue(os.path.isdir(host_coverage_html_report_path))
-
-        # clean up
-        shutil.rmtree(temp_dir_name)
-
-    def test_compile_docs_for_python_code_with_docker_container(self):
-        mgr = self.mgr
-        mgr.paths_to_mount_to_docker_container = {
-            os.path.abspath('.'): {
-                'bind': '/root/host/Documents/wc_env_manager',
-                'mode': 'rw',
-                'remove_python_cache': True,
-            }
-        }
-        mgr.python_packages_from_github = ''
-        mgr.python_packages_from_host = '/root/host/Documents/wc_env_manager'
-        container = mgr.create_docker_container()
-        mgr.setup_docker_container()
-
-        if os.path.isdir(os.path.join('docs', '_build')):
-            shutil.rmtree(os.path.join('docs', '_build'))
-
-        mgr.compile_docs_for_python_code_with_docker_container(check_spelling=True)
-
-        self.assertTrue(os.path.isfile(os.path.join('docs', '_build', 'html', 'index.html')))
 
     def test_convert_host_to_container_path(self):
         mgr = self.mgr

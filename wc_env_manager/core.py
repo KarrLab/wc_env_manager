@@ -315,11 +315,11 @@ class WcEnvManager(object):
         container = self._docker_container
 
         # copy default configuration files to Docker container
-        self.copy_config_files_to_docker_container()
+        self.copy_config_files_to_docker_container(overwrite=upgrade)
 
         # copy additional files to Docker container
         for path in self.paths_to_copy_to_docker_container.values():
-            self.copy_path_to_docker_container(path['host'], path['container'])
+            self.copy_path_to_docker_container(path['host'], path['container'], overwrite=upgrade)
 
         # install SSH key
         self.install_github_ssh_host_in_docker_container(upgrade=upgrade)
@@ -330,8 +330,12 @@ class WcEnvManager(object):
         self.install_python_packages_in_docker_container(self.python_packages_from_github, upgrade=upgrade, process_dependency_links=True)
         self.install_python_packages_in_docker_container(self.python_packages_from_host, upgrade=upgrade, process_dependency_links=True)
 
-    def copy_config_files_to_docker_container(self):
-        """ Install configuration files from ~/.wc to Docker container """
+    def copy_config_files_to_docker_container(self, overwrite=False):
+        """ Install configuration files from ~/.wc to Docker container 
+
+        Args:
+            overwrite (:obj:`bool`, optional): if :obj:`True`, overwrite files
+        """
         container_user_dirname, _ = self.run_process_in_docker_container('bash -c "realpath ~"',
                                                                          container_user=WcEnvUser.root)
         container_config_dirname = os.path.join(container_user_dirname, '.wc')
@@ -339,7 +343,8 @@ class WcEnvManager(object):
 
         if os.path.isdir(host_config_dirname):
             # copy config files from host to container
-            self.copy_path_to_docker_container(host_config_dirname, container_config_dirname)
+            self.copy_path_to_docker_container(host_config_dirname, container_config_dirname, 
+                container_user=WcEnvUser.root, overwrite=overwrite)
 
             # install third party config files in container
             filename = os.path.join(host_config_dirname, 'third_party', 'paths.yml')
@@ -353,9 +358,9 @@ class WcEnvManager(object):
                 self.run_process_in_docker_container(['mkdir', '-p', abs_dest_dir],
                                                      container_user=WcEnvUser.root)
                 abs_src = os.path.join(host_config_dirname, 'third_party', rel_src)
-                self.copy_path_to_docker_container(abs_src, abs_dest)
+                self.copy_path_to_docker_container(abs_src, abs_dest, container_user=WcEnvUser.root, overwrite=overwrite)
 
-    def copy_path_to_docker_container(self, local_path, container_path, overwrite=True):
+    def copy_path_to_docker_container(self, local_path, container_path, overwrite=True, container_user=WcEnvUser.root):
         """ Copy file or directory to Docker container
 
         Implemented using subprocess because docker-py does not (as 2018-08-22)
@@ -370,10 +375,10 @@ class WcEnvManager(object):
             :obj:`WcEnvManagerError`: if the container_path already exists and 
                 :obj:`overwrite` is :obj:`False`
         """
-        is_file, _ = self.run_process_in_docker_container(
+        is_path, _ = self.run_process_in_docker_container(
             'bash -c "if [ -f {0} ] || [ -d {0} ]; then echo 1; fi"'.format(container_path),
-            container_user=WcEnvUser.root)
-        if is_file and not overwrite:
+            container_user=container_user)
+        if is_path and not overwrite:
             raise WcEnvManagerError('File {} already exists'.format(container_path))
         self.run_process_on_host([
             'docker', 'cp',
@@ -458,183 +463,6 @@ class WcEnvManager(object):
         # remove temporary files
         os.remove(host_temp_filename)
         self.run_process_in_docker_container(['rm', container_temp_filename], container_user=WcEnvUser.root)
-
-    def run_wc_cli_in_docker_container(self, cmd=None):
-        """ Run whole-cell modeling CLI (`wc` package) in Docker container
-
-        Args:
-            cmd (:obj:`list`, optional)            
-        """
-        # todo: translate paths
-        cmd = cmd or []
-        self.run_process_in_docker_container(['wc'] + cmd)
-
-    def run_python_code_in_docker_container(self, host_path):
-        """ Run Python code in Docker container
-
-        Args:
-            host_path (:obj:`str`): path to code on host
-        """
-        container_path = self.convert_host_to_container_path(
-            host_path)
-        cmd = [
-            'python{}'.format(self.python_version_in_container),
-            container_path,
-        ]
-        self.run_process_in_docker_container(cmd)
-
-    def test_python_code_in_docker_container(self,
-                                             host_test_path='tests/', test_name_search_expression=None,
-                                             capture_output=False, host_results_path=None, host_cover_paths=None,
-                                             host_coverage_results_path='.coverage',
-                                             host_coverage_html_report_path='htmlcov'):
-        """ Use pytest to test code in Docker container
-
-        Args:
-            host_test_path (:obj:`str`, optional): path on host to test
-            test_name_search_expression (:obj:`list`, optional): only run tests which 
-                match the given substring expression
-            capture_output (:obj:`str`, optional): if :obj:`True`, capture stdout and 
-                stderr
-            host_results_path (:obj:`str`, optional): path to save test results in JUnit
-                XML format
-            host_cover_paths (:obj:`list`, optional): list of host paths to evaluate 
-                the coverage of
-            host_coverage_results_path (:obj:`str`, optional): path to save coverage results
-            host_coverage_html_report_path (:obj:`str`, optional): path to save HTML-formatted
-                coverage report
-        """
-        # delete __pycache__ directories and .pyc files
-        for host_path, container_path_attrs in self.paths_to_mount_to_docker_container.items():
-            if container_path_attrs.get('remove_python_cache', False):
-                container_path = container_path_attrs['bind']
-                self.run_process_in_docker_container(
-                    '''bash -c "shopt -s globstar \
-                                && rm **/*.pyc \
-                                && rm -r **/__pycache__ \
-                                && shopt -u globstar
-                    "''', work_dir=container_path)
-
-        # run tests
-        cmd = [
-            'python{}'.format(self.python_version_in_container),
-            '-m', 'pytest',
-        ]
-
-        if host_test_path:
-            container_test_path = self.convert_host_to_container_path(
-                host_test_path)
-            cmd.append(container_test_path)
-
-        if test_name_search_expression:
-            cmd += ['-k', test_name_search_expression]
-
-        if not capture_output:
-            cmd.append('--capture=no')
-
-        if host_results_path:
-            container_results_path, _ = self.run_process_in_docker_container('mktemp')
-            cmd += ['--junit-xml', container_results_path]
-
-        host_cover_paths = host_cover_paths or []
-        for host_cover_path in host_cover_paths:
-            container_cover_path = self.convert_host_to_container_path(
-                host_cover_path)
-            cmd += ['--cov', container_cover_path]
-
-        self.run_process_in_docker_container(cmd)
-
-        # copy results to host
-        if host_results_path:
-            self.copy_path_from_docker_container(
-                container_results_path, host_results_path)
-            self.run_process_in_docker_container(['rm', container_results_path])
-
-        # copy coverage results to host and compile HTML-formatted report
-        if host_cover_paths:
-            container_coverage_html_report_path, _ = self.run_process_in_docker_container(['mktemp', '-d'])
-            self.run_process_in_docker_container([
-                'python' + self.python_version_in_container, '-m',
-                'coverage', 'html',
-                '-d', container_coverage_html_report_path,
-            ])
-
-            # copy coverage file to host
-            pwd, _ = self.run_process_in_docker_container('pwd')
-            self.copy_path_from_docker_container(
-                os.path.join(pwd, '.coverage'), host_coverage_results_path)
-
-            self.copy_path_from_docker_container(
-                container_coverage_html_report_path, host_coverage_html_report_path)
-
-            # transform lines in coverage from container to host paths
-            with open(host_coverage_results_path, 'r') as file:
-                tmp = file.read()
-            coverage_header = tmp[0:tmp.find('!', 1)+1]
-            container_coverage_data = json.loads(tmp[tmp.find('!', 1)+1:])['lines']
-
-            host_coverage_data = {}
-            for container_path, lines in container_coverage_data.items():
-                host_path = self.convert_container_to_host_path(
-                    container_path)
-                host_coverage_data[host_path] = lines
-
-            with open(host_coverage_results_path, 'w') as file:
-                file.write(coverage_header)
-                json.dump({'lines': host_coverage_data}, file)
-
-            # cleanup temorary host directory
-            self.run_process_in_docker_container(['rm', '-r', container_coverage_html_report_path])
-
-    def compile_docs_for_python_code_with_docker_container(
-        self,
-        rel_docs_path='docs', rel_static_path='docs/_static',
-        rel_source_path='docs/source', rel_html_path='docs/_build/html',
-        rel_doctrees_path='docs/_build/doctrees', rel_spelling_path='docs/_build/spelling',
-        check_spelling=False,
-    ):
-        """ Compile documentation for Python code using Docker container
-
-        Args:
-            rel_docs_path (:obj:`str`, optional): relative path to documentation files
-            rel_static_path (:obj:`str`, optional): relative path to static documentation content
-            rel_source_path (:obj:`str`, optional): relative path to save generated documentation files for source code
-            rel_html_path (:obj:`str`, optional): relative path to save compiled documentation
-            rel_doctrees_path (:obj:`str`, optional): relative path to save compiled doctrees
-            rel_spelling_path (:obj:`str`, optional): relative path to save compiled spelling errors
-            check_spelling (:obj:`bool`, optional): if :obj:`True`, check spelling of the documentation
-        """
-        host_cwd = '.'
-        container_cwd = self.convert_host_to_container_path(host_cwd)
-
-        # create directory for static content
-        if not os.path.isdir(rel_static_path):
-            os.mkdir(rel_static_path)
-
-        # compile API docs in Docker container
-        parser = configparser.ConfigParser()
-        parser.read('setup.cfg')
-        packages = parser.get('sphinx-apidocs', 'packages').strip().split('\n')
-        for package in packages:
-            self.run_process_in_docker_container([
-                'python' + self.python_version_in_container, '-m',
-                'sphinx.apidoc', '-f', '-P', '-o', rel_source_path, package,
-            ], work_dir=container_cwd)
-
-        # compile documentation in Docker container
-        self.run_process_in_docker_container([
-            'python' + self.python_version_in_container, '-m',
-            'sphinx', rel_docs_path, rel_html_path,
-        ], work_dir=container_cwd)
-
-        if check_spelling:
-            self.run_process_in_docker_container([
-                'python' + self.python_version_in_container, '-m',
-                'sphinx',
-                '-b', 'spelling',
-                '-d', rel_doctrees_path,
-                rel_docs_path, rel_spelling_path,
-            ], work_dir=container_cwd)
 
     def convert_host_to_container_path(self, host_path):
         """ Get the corresponding container path for a host path
