@@ -97,10 +97,8 @@ class WcEnvManager(object):
         _docker_container (:obj:`docker.models.containers.Container`): current Docker container
     """
 
-    # todo: make compatible with debuggers such as PyCharm
     # todo: reduce privileges in Docker image by creating separate user
     # todo: manipulate Python path for packages without setup.py
-    # todo: handle logging
 
     def __init__(self,
                  docker_image_repo=None, docker_image_tags=None,
