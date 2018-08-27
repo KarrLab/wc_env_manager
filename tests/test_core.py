@@ -37,8 +37,8 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
             file.write('CMD bash\n')
 
         mgr = self.mgr = wc_env_manager.core.WcEnvManager(
-            docker_image_repo='karrlab/test',
-            docker_image_tags=['0.0.1', 'latest'],
+            base_docker_image_repo='karrlab/test',
+            base_docker_image_tags=['0.0.1', 'latest'],
             dockerfile_path=dockerfile_path,
             docker_image_context_path=docker_image_context_path)
 
@@ -60,22 +60,22 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
     def test_build_docker_image(self):
         mgr = self.mgr
 
-        image = mgr.build_docker_image()
+        image = mgr.build_base_docker_image()
         self.assertIsInstance(image, docker.models.images.Image)
         self.assertEqual(
             set(image.tags),
-            set([mgr.docker_image_repo + ':' + tag for tag in mgr.docker_image_tags]))
+            set([mgr.base_docker_image_repo + ':' + tag for tag in mgr.base_docker_image_tags]))
 
-        image = mgr._docker_client.images.get(mgr.docker_image_repo + ':' + mgr.docker_image_tags[0])
+        image = mgr._docker_client.images.get(mgr.base_docker_image_repo + ':' + mgr.base_docker_image_tags[0])
         self.assertEqual(
             set(image.tags),
-            set([mgr.docker_image_repo + ':' + tag for tag in mgr.docker_image_tags]))
+            set([mgr.base_docker_image_repo + ':' + tag for tag in mgr.base_docker_image_tags]))
 
     def test_build_docker_image_verbose(self):
         mgr = self.mgr
         mgr.verbose = True
         with capturer.CaptureOutput(relay=False) as capture_output:
-            mgr.build_docker_image()
+            mgr.build_base_docker_image()
             self.assertRegex(capture_output.get_text(), r'Step 1/2 : FROM ubuntu')
 
     def test_build_docker_image_context_error(self):
@@ -86,7 +86,7 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
         mgr.docker_image_context_path += '.null'
 
         with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, ' must be a directory'):
-            mgr.build_docker_image()
+            mgr.build_base_docker_image()
 
         mgr.docker_image_context_path = docker_image_context_path
 
@@ -99,7 +99,7 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
 
         # check for error
         with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Docker connection error:'):
-            mgr.build_docker_image()
+            mgr.build_base_docker_image()
 
         # restart Docker service
         subprocess.check_call(['systemctl', 'start', 'docker'])
@@ -114,7 +114,7 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
 
         # check for error
         with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Docker API error:'):
-            mgr.build_docker_image()
+            mgr.build_base_docker_image()
 
     def test_build_docker_image_build_error(self):
         mgr = self.mgr
@@ -127,7 +127,7 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
 
         # check for error
         with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Docker build error:'):
-            mgr.build_docker_image()
+            mgr.build_base_docker_image()
 
     def test_build_docker_image_other_error(self):
         mgr = self.mgr
@@ -135,19 +135,19 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
         # introduce typo into Dockerfile
         with mock.patch.object(docker.models.images.ImageCollection, 'build', side_effect=Exception('message')):
             with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Exception:\n  message'):
-                mgr.build_docker_image()
+                mgr.build_base_docker_image()
 
     def test_remove_docker_image(self):
         mgr = self.mgr
 
-        image = mgr.build_docker_image()
-        for tag in mgr.docker_image_tags:
-            mgr._docker_client.images.get(mgr.docker_image_repo + ':' + tag)
+        image = mgr.build_base_docker_image()
+        for tag in mgr.base_docker_image_tags:
+            mgr._docker_client.images.get(mgr.base_docker_image_repo + ':' + tag)
 
         mgr.remove_docker_image()
-        for tag in mgr.docker_image_tags:
+        for tag in mgr.base_docker_image_tags:
             with self.assertRaises(docker.errors.ImageNotFound):
-                mgr._docker_client.images.get(mgr.docker_image_repo + ':' + tag)
+                mgr._docker_client.images.get(mgr.base_docker_image_repo + ':' + tag)
 
 
 class WcEnvManagerTestCase(unittest.TestCase):

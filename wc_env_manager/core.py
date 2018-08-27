@@ -65,6 +65,9 @@ class WcEnvManager(object):
     """ Manage computing environments (Docker containers) for whole-cell modeling
 
     Attributes:
+        base_docker_image_repo (:obj:`str`): name of base Docker image for environment
+        base_docker_image_tags (:obj:`list` of :obj:`str`): list of tags for base Docker 
+            repository
         docker_image_repo (:obj:`str`): name of Docker image for environment
         docker_image_tags (:obj:`list` of :obj:`str`): list of tags for Docker 
             repository
@@ -101,6 +104,7 @@ class WcEnvManager(object):
     # todo: manipulate Python path for packages without setup.py
 
     def __init__(self,
+                 base_docker_image_repo=None, base_docker_image_tags=None,
                  docker_image_repo=None, docker_image_tags=None,
                  dockerfile_path=None, docker_image_build_args=None, docker_image_context_path=None,
                  docker_container_name_format=None,
@@ -115,6 +119,10 @@ class WcEnvManager(object):
                  verbose=None):
         """
         Args:
+            base_docker_image_repo (:obj:`str`, optional): name of base Docker repository for 
+                environment
+            base_docker_image_tags (:obj:`list` of :obj:`str`, optional): list of tags for 
+                base Docker repository
             docker_image_repo (:obj:`str`, optional): name of Docker repository for 
                 environment
             docker_image_tags (:obj:`list` of :obj:`str`, optional): list of tags for 
@@ -161,8 +169,8 @@ class WcEnvManager(object):
         self.set_docker_image(self.get_latest_docker_image())
         self.set_docker_container(self.get_latest_docker_container())
 
-    def build_docker_image(self):
-        """ Build Docker image for WC modeling environment
+    def build_base_docker_image(self):
+        """ Build base Docker image for WC modeling environment
 
         Returns:
             :obj:`docker.models.images.Image`: Docker image
@@ -173,8 +181,8 @@ class WcEnvManager(object):
         """
         # build image
         if self.verbose:
-            print('Building image {} with tags {{{}}} ...'.format(
-                self.docker_image_repo, ', '.join(self.docker_image_tags)))
+            print('Building base image {} with tags {{{}}} ...'.format(
+                self.base_docker_image_repo, ', '.join(self.base_docker_image_tags)))
 
         if not os.path.isdir(self.docker_image_context_path):
             raise WcEnvManagerError('Docker image context "{}" must be a directory'.format(
@@ -202,11 +210,11 @@ class WcEnvManager(object):
                     exception.__class__.__name__, str(exception).replace('\n', '\n  ')))
 
         # tag image
-        for tag in self.docker_image_tags:
-            image.tag(self.docker_image_repo, tag=tag)
+        for tag in self.base_docker_image_tags:
+            image.tag(self.base_docker_image_repo, tag=tag)
 
         # re-get image because tags don't automatically update on image object
-        image = self._docker_client.images.get('{}:{}'.format(self.docker_image_repo, self.docker_image_tags[0]))
+        image = self._docker_client.images.get('{}:{}'.format(self.base_docker_image_repo, self.base_docker_image_tags[0]))
 
         # print log
         if self.verbose:
@@ -229,8 +237,8 @@ class WcEnvManager(object):
             force (:obj:`bool`, optional): if :obj:`True`, force removal of the version of the
                 image (e.g. even if a container with the image is running)
         """
-        for tag in self.docker_image_tags:
-            self._docker_client.images.remove('{}:{}'.format(self.docker_image_repo, tag), force=True)
+        for tag in self.base_docker_image_tags:
+            self._docker_client.images.remove('{}:{}'.format(self.base_docker_image_repo, tag), force=True)
 
     def login_dockerhub(self):
         """ Login to DockerHub """
@@ -238,8 +246,8 @@ class WcEnvManager(object):
 
     def push_docker_image(self):
         """ Push Docker image to DockerHub """
-        for tag in self.docker_image_tags:
-            self._docker_client.images.push(self.docker_image_repo, tag)
+        for tag in self.base_docker_image_tags:
+            self._docker_client.images.push(self.base_docker_image_repo, tag)
 
     def pull_docker_image(self):
         """ Pull Docker image for WC modeling environment
@@ -247,7 +255,7 @@ class WcEnvManager(object):
         Returns:
             :obj:`docker.models.images.Image`: Docker image
         """
-        self._docker_image = self._docker_client.images.pull(self.docker_image_repo, tag=self.docker_image_tags[0])
+        self._docker_image = self._docker_client.images.pull(self.base_docker_image_repo, tag=self.base_docker_image_tags[0])
         return self._docker_image
 
     def set_docker_image(self, image):
@@ -268,7 +276,7 @@ class WcEnvManager(object):
             :obj:`docker.models.images.Image`: Docker image
         """
         try:
-            return self._docker_client.images.get(self.docker_image_repo)
+            return self._docker_client.images.get(self.base_docker_image_repo)
         except docker.errors.ImageNotFound:
             return None
 
@@ -294,7 +302,7 @@ class WcEnvManager(object):
         """
         name = self.make_docker_container_name()
         container = self._docker_container = self._docker_client.containers.run(
-            self.docker_image_repo, name=name,
+            self.base_docker_image_repo, name=name,
             volumes=self.paths_to_mount_to_docker_container,
             stdin_open=True, tty=tty,
             detach=True,
