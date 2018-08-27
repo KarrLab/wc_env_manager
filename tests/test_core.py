@@ -1,8 +1,8 @@
 """ Tests for wc_env_manager.core
 
-:Author: Arthur Goldberg <Arthur.Goldberg@mssm.edu>
 :Author: Jonathan Karr <jonrkarr@gmail.com>
-:Date: 2018-08-20
+:Author: Arthur Goldberg <Arthur.Goldberg@mssm.edu>
+:Date: 2018-08-23
 :Copyright: 2018, Karr Lab
 :License: MIT
 """
@@ -12,6 +12,7 @@ from inspect import currentframe, getframeinfo
 import capturer
 import datetime
 import docker
+import git
 import mock
 import os
 import shutil
@@ -19,6 +20,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import wc_env_manager.core
 import whichcraft
@@ -155,7 +157,9 @@ class WcEnvManagerTestCase(unittest.TestCase):
         mgr.remove_docker_containers(force=True)
 
     def tearDown(self):
-        self.mgr.remove_docker_containers(force=True)
+        #todo: remove
+        #self.mgr.remove_docker_containers(force=True)
+        pass
 
     def test_login_dockerhub(self):
         mgr = self.mgr
@@ -197,17 +201,330 @@ class WcEnvManagerTestCase(unittest.TestCase):
 
     def test_create_docker_container(self):
         mgr = self.mgr
+
+        temp_dir_name_a = tempfile.mkdtemp()
+        temp_dir_name_b = tempfile.mkdtemp()
+
+        mgr.paths_to_mount_to_docker_container = {
+            temp_dir_name_a: {
+                'bind': '/root/host/mount-a',
+                'mode': 'rw',
+            },
+            temp_dir_name_b: {
+                'bind': '/root/host/mount-b',
+                'mode': 'rw',
+            },
+        }
         container = mgr.create_docker_container()
         self.assertIsInstance(container, docker.models.containers.Container)
+
+        mgr.run_process_in_docker_container('bash -c "echo abc >> /root/host/mount-a/test_a"')
+        mgr.run_process_in_docker_container('bash -c "echo 123 >> /root/host/mount-b/test_b"')
+
+        with open(os.path.join(temp_dir_name_a, 'test_a'), 'r') as file:
+            self.assertEqual(file.read(), 'abc\n')
+        with open(os.path.join(temp_dir_name_b, 'test_b'), 'r') as file:
+            self.assertEqual(file.read(), '123\n')
+
+        shutil.rmtree(temp_dir_name_a)
+        shutil.rmtree(temp_dir_name_b)
 
     def test_make_docker_container_name(self):
         mgr = self.mgr
         mgr.docker_container_name_format = 'wc_env-%Y'
         self.assertEqual(mgr.make_docker_container_name(), 'wc_env-{}'.format(datetime.datetime.now().year))
 
-    @unittest.skip('todo')
     def test_setup_docker_container(self):
+        mgr = self.mgr
+        mgr.verbose = True
+
+        temp_dir_name = tempfile.mkdtemp()
+
+        with open(os.path.join(temp_dir_name, 'a'), 'w') as file:
+            file.write('ABC')
+        with open(os.path.join(temp_dir_name, 'b'), 'w') as file:
+            file.write('DEF')
+        mgr.paths_to_copy_to_docker_container = {
+            'a': {
+                'host': os.path.join(temp_dir_name, 'a'),
+                'container': '/tmp/a',
+            },
+            'b': {
+                'host': os.path.join(temp_dir_name, 'b'),
+                'container': '/tmp/b',
+            },
+        }
+
+        git.Repo.clone_from('https://github.com/KarrLab/wc_utils.git',
+                            os.path.join(temp_dir_name, 'wc_utils'))
+        mgr.paths_to_mount_to_docker_container = {
+            temp_dir_name: {
+                'bind': '/root/host/Documents',
+                'mode': 'rw',
+            }
+        }
+
+        mgr.python_packages_from_github = '''
+        git+https://github.com/KarrLab/mycoplasma_pneumoniae.git#egg=mycoplasma_pneumoniae-0.0.1[all]
+        git+https://github.com/KarrLab/intro_to_wc_modeling.git#egg=intro_to_wc_modeling-0.0.1[all]
+        '''
+        mgr.python_packages_from_host = '''
+        /root/host/Documents/wc_utils
+        '''
+
+        mgr.create_docker_container()
+        with capturer.CaptureOutput(relay=False) as capture_output:
+            mgr.setup_docker_container()
+            text = capture_output.get_text()
+        self.assertRegex(text, r'Processing /root/host/Documents/wc_utils')
+        self.assertRegex(text, r'Successfully installed wc-utils')
+
+        mgr.copy_path_from_docker_container('/tmp/a',
+                                            os.path.join(temp_dir_name, 'a2'))
+        mgr.copy_path_from_docker_container('/tmp/b',
+                                            os.path.join(temp_dir_name, 'b2'))
+        with open(os.path.join(temp_dir_name, 'a2'), 'r') as file:
+            self.assertEqual(file.read(), 'ABC')
+        with open(os.path.join(temp_dir_name, 'b2'), 'r') as file:
+            self.assertEqual(file.read(), 'DEF')
+
+        shutil.rmtree(temp_dir_name)
+
+    @unittest.skip('long test')
+    def test_setup_docker_container_full(self):
+        mgr = self.mgr
+        mgr.verbose = True
+        mgr.create_docker_container()
+        mgr.setup_docker_container()
+
+    @unittest.skipUnless(os.path.isdir(os.path.expanduser(os.path.join('~', '.wc'))),
+                         'config files package must be installed')
+    def test_copy_config_files_to_docker_container(self):
+        mgr = self.mgr
+        mgr.create_docker_container()
+        mgr.copy_config_files_to_docker_container()
+
+        result, _ = mgr.run_process_in_docker_container('bash -c "if [ -d ~/.wc ]; then echo 1; fi"')
+        self.assertEqual(result, '1')
+
+        result, _ = mgr.run_process_in_docker_container('bash -c "if [ -f ~/.wc/third_party/paths.yml ]; then echo 1; fi"')
+        self.assertEqual(result, '1')
+
+        result, _ = mgr.run_process_in_docker_container('bash -c "if [ -f ~/.ssh/id_rsa ]; then echo 1; fi"')
+        self.assertEqual(result, '1')
+
+    def test_copy_path_to_from_docker_container(self):
+        mgr = self.mgr
+        mgr.create_docker_container()
+
+        temp_dir_name = tempfile.mkdtemp()
+        temp_file_name = os.path.join(temp_dir_name, 'test.txt')
+        with open(temp_file_name, 'w') as file:
+            file.write('abc')
+
+        mgr.copy_path_to_docker_container(temp_file_name, '/tmp/test.txt')
+        mgr.copy_path_to_docker_container(temp_file_name, '/tmp/test.txt')  # overwrite
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'exists'):
+            mgr.copy_path_to_docker_container(temp_file_name, '/tmp/test.txt', overwrite=False)
+
+        os.remove(temp_file_name)
+        mgr.copy_path_from_docker_container('/tmp/test.txt', temp_file_name)
+        mgr.copy_path_from_docker_container('/tmp/test.txt', temp_file_name)  # overwrite
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'exists'):
+            mgr.copy_path_from_docker_container('/tmp/test.txt', temp_file_name, overwrite=False)
+
+        with open(temp_file_name, 'r') as file:
+            self.assertEqual(file.read(), 'abc')
+
+        shutil.rmtree(temp_dir_name)
+
+    @unittest.skipUnless(os.path.isdir(os.path.expanduser(os.path.join('~', '.wc'))),
+                         'config files package must be installed')
+    def test_install_github_ssh_host_in_docker_container(self):
+        mgr = self.mgr
+        mgr.create_docker_container()
+        mgr.copy_config_files_to_docker_container()
+        mgr.install_github_ssh_host_in_docker_container()
+
+        _, temp_file_name = tempfile.mkstemp()
+        mgr.copy_path_from_docker_container('/root/.ssh/known_hosts', temp_file_name)
+        with open(temp_file_name, 'r') as file:
+            self.assertRegex(file.read(), r'github\.com ssh-rsa')
+        os.remove(temp_file_name)
+
+    @unittest.skipUnless(os.path.isdir(os.path.expanduser(os.path.join('~', '.wc'))),
+                         'config files package must be installed')
+    def test_test_github_ssh_access_in_docker_container(self):
+        mgr = self.mgr
+        mgr.create_docker_container()
+        mgr.copy_config_files_to_docker_container()
+        mgr.install_github_ssh_host_in_docker_container()
+
+        self.assertTrue(mgr.test_github_ssh_access_in_docker_container())
+
+    def test_install_python_packages_in_docker_container(self):
+        mgr = self.mgr
+        mgr.verbose = True
+        container = mgr.create_docker_container()
+
+        # not upgrade
+        with capturer.CaptureOutput(relay=False) as capture_output:
+            mgr.install_python_packages_in_docker_container(
+                '''
+                # comment
+                pip
+                ''')
+            self.assertRegex(capture_output.get_text(), 'Requirement already satisfied: pip')
+
+        # upgrade, process dependency links
+        with capturer.CaptureOutput(relay=False) as capture_output:
+            mgr.install_python_packages_in_docker_container(
+                '''
+                # comment
+                pytest
+                ''', upgrade=True, process_dependency_links=True)
+            self.assertRegex(capture_output.get_text(), 'Successfully installed pytest')
+
+    def test_install_python_packages_in_docker_container_error(self):
+        mgr = self.mgr
+        mgr.python_packages_from_github = ''
+        mgr.python_packages_from_host = ''
+        container = mgr.create_docker_container()
+        mgr.setup_docker_container()
+
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'No matching distribution'):
+            mgr.install_python_packages_in_docker_container(
+                'undefined_package')
+
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Repository not found'):
+            mgr.install_python_packages_in_docker_container(
+                'git+https://github.com/KarrLab/undefined_package.git#egg=undefined_package-0.0.1[all]')
+
+        mgr.copy_config_files_to_docker_container()
+        mgr.install_github_ssh_host_in_docker_container()
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Repository not found'):
+            mgr.install_python_packages_in_docker_container(
+                'git+https://github.com/KarrLab/undefined_package.git#egg=undefined_package-0.0.1[all]')
+
+    @unittest.skip('todo')
+    def test_run_python_code_in_docker_container(self):
         pass
+
+    def test_test_python_code_in_docker_container(self):
+        mgr = self.mgr
+        mgr.paths_to_mount_to_docker_container = {
+            os.path.abspath('.'): {
+                'bind': '/root/host/Documents/wc_env_manager',
+                'mode': 'rw',
+                'remove_python_cache': True,
+            }
+        }
+        mgr.python_packages_from_github = ''
+        mgr.python_packages_from_host = '/root/host/Documents/wc_env_manager'
+        container = mgr.create_docker_container()
+        mgr.setup_docker_container()
+
+        temp_dir_name = tempfile.mkdtemp()
+
+        host_results_path = os.path.join(temp_dir_name, 'results.xml')
+        host_coverage_results_path = os.path.join(temp_dir_name, '.coverage')
+        host_coverage_html_report_path = os.path.join(temp_dir_name, 'htmlcov')
+
+        # test code in Docker container
+        mgr.verbose = True
+        with capturer.CaptureOutput(relay=False) as capture_output:
+            mgr.test_python_code_in_docker_container(
+                host_test_path='tests/test_core.py::ExampleTestCase',
+                test_name_search_expression='test',
+                capture_output=False,
+                host_results_path=host_results_path,
+                host_cover_paths=['wc_env_manager'],
+                host_coverage_results_path=host_coverage_results_path,
+                host_coverage_html_report_path=host_coverage_html_report_path)
+            self.assertRegex(capture_output.get_text(), '= 1 passed in \d+\.\d+ seconds =')
+
+        # assertions
+        self.assertTrue(os.path.isfile(host_results_path))
+        self.assertTrue(os.path.isfile(host_coverage_results_path))
+        self.assertTrue(os.path.isdir(host_coverage_html_report_path))
+
+        # clean up
+        shutil.rmtree(temp_dir_name)
+
+    def test_compile_docs_for_python_code_with_docker_container(self):
+        mgr = self.mgr
+        mgr.paths_to_mount_to_docker_container = {
+            os.path.abspath('.'): {
+                'bind': '/root/host/Documents/wc_env_manager',
+                'mode': 'rw',
+                'remove_python_cache': True,
+            }
+        }
+        mgr.python_packages_from_github = ''
+        mgr.python_packages_from_host = '/root/host/Documents/wc_env_manager'
+        container = mgr.create_docker_container()
+        mgr.setup_docker_container()
+
+        if os.path.isdir(os.path.join('docs', '_build')):
+            shutil.rmtree(os.path.join('docs', '_build'))
+
+        mgr.compile_docs_for_python_code_with_docker_container(check_spelling=True)
+
+        self.assertTrue(os.path.isfile(os.path.join('docs', '_build', 'html', 'index.html')))
+
+    def test_convert_host_to_container_path(self):
+        mgr = self.mgr
+        mgr.paths_to_mount_to_docker_container = {
+            '/home/test_host_dir': {
+                'bind': '/root/test_container_dir',
+                'mode': 'rw',
+            },
+            '.': {
+                'bind': '/root/package',
+                'mode': 'rw',
+            }
+        }
+        self.assertEqual(mgr.convert_host_to_container_path(
+            '/home/test_host_dir/test_file'),
+            '/root/test_container_dir/test_file')
+        self.assertEqual(mgr.convert_host_to_container_path(
+            '/home/test_host_dir/a/b/c/test_file'),
+            '/root/test_container_dir/a/b/c/test_file')
+
+        self.assertEqual(mgr.convert_host_to_container_path(
+            'tests/test_core.py'),
+            '/root/package/tests/test_core.py')
+
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'not mounted'):
+            mgr.convert_host_to_container_path(
+                '/home/not_mounted/a/b/c/test_file')
+
+    def test_convert_container_to_host_path(self):
+        mgr = self.mgr
+        mgr.paths_to_mount_to_docker_container = {
+            '/home/test_host_dir': {
+                'bind': '/root/test_container_dir',
+                'mode': 'rw',
+            },
+            '.': {
+                'bind': '/root/package',
+                'mode': 'rw',
+            }
+        }
+        self.assertEqual(mgr.convert_container_to_host_path(
+            '/root/test_container_dir/test_file'),
+            '/home/test_host_dir/test_file')
+        self.assertEqual(mgr.convert_container_to_host_path(
+            '/root/test_container_dir/a/b/c/test_file'),
+            '/home/test_host_dir/a/b/c/test_file')
+
+        self.assertEqual(mgr.convert_container_to_host_path(
+            '/root/package/tests/test_core.py'),
+            './tests/test_core.py')
+
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'not mounted'):
+            mgr.convert_container_to_host_path(
+                '/root/not_mounted/a/b/c/test_file')
 
     def test_set_docker_container(self):
         mgr = self.mgr
@@ -233,6 +550,37 @@ class WcEnvManagerTestCase(unittest.TestCase):
         container = mgr.create_docker_container()
         containers = mgr.get_docker_containers()
         self.assertEqual(containers, [container])
+
+    def test_run_process_in_docker_container(self):
+        mgr = self.mgr
+        mgr.create_docker_container()
+
+        # not verbose
+        mgr.verbose = False
+        with capturer.CaptureOutput(relay=False) as capture_output:
+            mgr.run_process_in_docker_container(['echo', 'here'])
+            self.assertEqual(capture_output.get_text(), '')
+
+        # verbose
+        mgr.verbose = True
+        with capturer.CaptureOutput(relay=False) as capture_output:
+            mgr.run_process_in_docker_container(['echo', 'here'])
+            self.assertEqual(capture_output.get_text(), 'here')
+
+        # error
+        mgr.verbose = False
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, '  exit code: 126'):
+            mgr.run_process_in_docker_container(['__undefined__'])
+
+        # error, specified working directory
+        mgr.verbose = False
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, '  working directory: /root'):
+            mgr.run_process_in_docker_container(['__undefined__'], work_dir='/root')
+
+        # error, specified environment
+        mgr.verbose = False
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, '    key: val'):
+            mgr.run_process_in_docker_container(['__undefined__'], env={'key': 'val'})
 
     def test_get_docker_container_stats(self):
         mgr = self.mgr
@@ -265,341 +613,21 @@ class WcEnvManagerTestCase(unittest.TestCase):
         self.assertEqual(mgr._docker_container, None)
         self.assertEqual(mgr.get_docker_containers(), [])
 
+    def test_run_process_on_host(self):
+        mgr = self.mgr
 
-class DockerUtils(object):
+        mgr.verbose = False
+        with capturer.CaptureOutput(relay=False) as capture_output:
+            mgr.run_process_on_host(['echo', 'here'])
+            self.assertEqual(capture_output.get_text(), '')
 
-    FIELDS = 'name status image short_id'.split()
-
-    @staticmethod
-    def header():
-        return DockerUtils.FIELDS
-
-    @staticmethod
-    def format(container):
-        rv = []
-        for f in DockerUtils.FIELDS:
-            rv.append(str(getattr(container, f)))
-        return rv
-
-    @staticmethod
-    def list_all():
-        print('\t\t'.join(DockerUtils.header()))
-        for c in docker.from_env().containers.list(all=True):
-            print('\t\t'.join(DockerUtils.format(c)))
-
-    @staticmethod
-    def get_file(container, file):
-        """ get contents of a file in a container
-
-        Args:
-            container (:obj:`docker.models.containers.Container`): a Docker container
-            file (:obj:`str`): path to a file in `container`
-
-        Returns:
-            :obj:`str`: the contents of `file` in `container`
-
-        Raises:
-            :obj:`docker.errors.APIError`: if `container.exec_run` raises an error
-        """
-        exit_code, output = container.exec_run(['cat', file])
-        frameinfo = getframeinfo(currentframe())
-        if exit_code == 0:
-            return output.decode('utf-8')
-        else:
-            raise wc_env_manager.WcEnvManagerError("{}:{}: cat {} fails with exit_code {} "
-                                                   "this is a Docker system race condition; rerun test".format(
-                                                       frameinfo.filename, frameinfo.lineno, file, exit_code))
-
-    @staticmethod
-    def cmp_files(testcase, container, container_filename, host_file_content=None, host_filename=None):
-        """ Make testcase comparison of content of file on host with file in container
-
-        At least one of `host_file_content` or `host_filename` must be provided.
-        Will not scale to huge files.
-
-        Args:
-            testcase (:obj:`unittest.TestCase`): testcase being run
-            container (:obj:`docker.models.containers.Container`): Docker container storing `container_filename`
-            container_filename (:obj:`str`): pathname of file in `container`
-            host_file_content (:obj:`str`, optional): content of host file being compared
-            host_filename (:obj:`str`, optional): pathname of host file being compared
-
-        Raises:
-            :obj:`ValueError`: if both `host_file_content` and `host_filename` are `None`
-        """
-        if host_file_content is None and host_filename is None:
-            raise ValueError('either host_file_content or host_filename must be provided')
-        if host_file_content is None:
-            host_filename = os.path.abspath(os.path.expanduser(host_filename))
-            with open(host_filename, 'r') as f:
-                host_file_content = ''.join(f.readlines())
-        testcase.assertEqual(DockerUtils.get_file(container, container_filename), host_file_content)
+        mgr.verbose = True
+        with capturer.CaptureOutput(relay=False) as capture_output:
+            mgr.run_process_on_host(['echo', 'here'])
+            self.assertEqual(capture_output.get_text(), 'here')
 
 
-# use pytest --durations to report slow tests
-DONT_RUN_SLOW_TESTS = True
-
-# todo: port to and test on Windows
-# todo: perhaps try to speedup testing; could reuse containers
-
-
-class WcEnvTestCase(unittest.TestCase):
-
-    def setUp(self):
-        # use mkdtemp() instead of TemporaryDirectory() so files can be saved for debugging containers
-        #   after testing by setting `remove_temp_files`
-
-        # put test_dir in /private/tmp which can contain a Docker volume by default
-        self.test_dir = tempfile.mkdtemp(dir='/private/tmp')
-        self.temp_dir_in_home = \
-            tempfile.mkdtemp(dir=os.path.abspath(os.path.expanduser('~/tmp')))
-        self.test_dir_in_home = os.path.join('~/tmp', os.path.basename(self.temp_dir_in_home))
-        self.relative_path_file = os.path.join('tests', 'fixtures', 'relative_path_file.txt')
-
-        self.absolute_path_file = os.path.join(os.getcwd(), self.relative_path_file)
-        self.moving_text = 'I Have a Dream'
-        with open(self.absolute_path_file, 'w') as f:
-            f.write(self.moving_text)
-
-        tmp_dir = os.path.join(os.path.dirname(__file__), 'tmp')
-        if not os.path.exists(tmp_dir):
-            os.mkdir(tmp_dir)
-        self.relative_temp_path = tempfile.mkdtemp(dir=tmp_dir)
-
-        self.sample_repo = os.path.join(os.path.dirname(__file__), 'fixtures', 'sample_repo')
-        self.test_wc_repos = [
-            # test path in home dir
-            os.path.join(self.test_dir_in_home, 'repo_a'),
-            # test full pathname
-            os.path.join(self.test_dir, 'repo_b'),
-            # test relative pathname
-            os.path.join(self.relative_temp_path, 'repo_c')
-        ]
-        for test_wc_repo in self.test_wc_repos:
-            self.make_test_repo(test_wc_repo)
-
-        self.docker_client = docker.from_env()
-        # WCenvs with created containers that need to be removed
-        self.tmp_container_managers = []
-
-        self.manage_container = self.make_container(wc_repos=self.test_wc_repos)
-        self.container = self.manage_container.create()
-
-    def tearDown(self):
-        # remove containers created by these tests
-        for container_manager in self.tmp_container_managers:
-            container = container_manager.container
-            try:
-                container.stop()
-                container.remove(v=True)
-            except docker.errors.APIError as e:
-                print("docker.errors.APIError: {}".format(e), file=sys.stderr)
-        # remove temp files
-        remove_temp_files = True
-        if remove_temp_files:
-            shutil.rmtree(os.path.dirname(self.relative_temp_path))
-            shutil.rmtree(self.test_dir)
-            shutil.rmtree(self.temp_dir_in_home)
-
-    @classmethod
-    def tearDownClass(cls):
-        list_all_containers = False
-        if list_all_containers:
-            DockerUtils.list_all()
-
-    def make_test_repo(self, relative_path):
-        # copy contents of self.sample_repo to a test repo at `relative_path`
-        test_repo = os.path.abspath(os.path.expanduser(relative_path))
-        shutil.copytree(self.sample_repo, test_repo)
-        # create a unique repo name file
-        with open(os.path.join(test_repo, 'REPO_NAME'), 'w') as f:
-            f.write(os.path.basename(test_repo))
-
-    def test_constructor(self):
-        manage_container = wc_env_manager.WcEnv(self.test_wc_repos, '0.1')
-        expected_repo_paths = [
-            os.path.join(self.temp_dir_in_home, 'repo_a'),
-            os.path.join(self.test_dir, 'repo_b'),
-            os.path.join(os.getcwd(), self.relative_temp_path, 'repo_c')
-        ]
-        for computed_path, expected_path in zip(manage_container.local_wc_repos, expected_repo_paths):
-            self.assertEqual(computed_path, expected_path)
-        with self.assertRaises(wc_env_manager.WcEnvManagerError):
-            wc_env_manager.WcEnv([self.absolute_path_file], '0.1')
-        repo_a = os.path.join(self.temp_dir_in_home, 'repo_a')
-        with self.assertRaises(wc_env_manager.WcEnvManagerError):
-            # redundant repos
-            wc_env_manager.WcEnv([repo_a, repo_a], '0.1')
-        os.chmod(repo_a, 0)
-        with self.assertRaises(wc_env_manager.WcEnvManagerError):
-            # unreadable repo
-            wc_env_manager.WcEnv([repo_a], '0.1')
-        os.chmod(repo_a, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
-
-    def do_check_credentials(self, test_configs_repo_pwd_file, expected):
-        # check WcEnv.check_credentials()
-        manage_container = wc_env_manager.WcEnv([], '0.1',
-                                                configs_repo_pwd_file=test_configs_repo_pwd_file)
-        manage_container.check_credentials()
-        self.assertEqual(manage_container.configs_repo_pwd_file, expected)
-
-    def test_check_credentials(self):
-        # readable file
-        test_configs_repo_pwd_file = os.path.join(self.test_dir, 'configs_repo_pwd_file')
-        with open(test_configs_repo_pwd_file, 'w') as f:
-            f.write('test')
-            f.close()
-        self.do_check_credentials(test_configs_repo_pwd_file, test_configs_repo_pwd_file)
-
-        # file that cannot be read
-        os.chmod(test_configs_repo_pwd_file, 0)
-        self.do_check_credentials(test_configs_repo_pwd_file, None)
-
-        # non-existant file
-        test_no_such_file = os.path.join(self.test_dir, 'no_such_file')
-        self.do_check_credentials(test_no_such_file, None)
-
-        # no credentials
-        with self.assertRaises(wc_env_manager.WcEnvManagerError):
-            manage_container = wc_env_manager.WcEnv([], '0.1',
-                                                    configs_repo_pwd_file=test_no_such_file, ssh_key=test_no_such_file)
-
-    def test_build(self):
-        manage_image = wc_env_manager.WcEnv([], '0.0.1', verbose=True)
-        with self.assertRaises(wc_env_manager.WcEnvManagerError):
-            with open(os.path.join(os.path.dirname(__file__),
-                                   'fixtures/docker_files/bad_Dockerfile'), 'rb') as dockerfile_fileobj:
-                manage_image.build(fileobj=dockerfile_fileobj)
-        with self.assertRaises(wc_env_manager.WcEnvManagerError):
-            path = os.path.join(os.path.dirname(__file__), 'fixtures/docker_files/empty_dir')
-            manage_image.build(path=path)
-        with self.assertRaises(wc_env_manager.WcEnvManagerError):
-            manage_image.build(path='dummy', fileobj='dummy')
-        with CaptureOutput() as capturer:
-            with open(os.path.join(os.path.dirname(__file__),
-                                   'fixtures/docker_files/simple_busybox_Dockerfile'), 'rb') as dockerfile_fileobj:
-                image = manage_image.build(fileobj=dockerfile_fileobj)
-                self.assertTrue(type(image), docker.models.images.Image)
-                expected_output = ['Docker build command: docker build --pull --file',
-                                   'Running: docker_client.build',
-                                   'Successfully built', ]
-                for line in expected_output:
-                    self.assertIn(line, capturer.get_text())
-
-    def test_build_default_path(self):
-        current = os.getcwd()
-        docker_dir = os.path.join(os.path.dirname(__file__), 'fixtures/docker_files')
-        os.chdir(docker_dir)
-        manage_image = wc_env_manager.WcEnv([], '0.0.1')
-        self.assertTrue(type(manage_image.build()), docker.models.images.Image)
-        os.chdir(current)
-
-    def test_create(self):
-        # spot-check files in the 3 repos in the container
-        for local_wc_repo in self.manage_container.local_wc_repos:
-            container_wc_repo_dir = os.path.join(self.manage_container.container_repo_dir,
-                                                 os.path.basename(local_wc_repo))
-            container_core_py_file = os.path.join(container_wc_repo_dir, 'tests/requirements.txt')
-            DockerUtils.cmp_files(self, self.container, container_core_py_file,
-                                  host_filename=os.path.join(self.sample_repo, 'tests/requirements.txt'))
-            container_REPO_NAME_file = os.path.join(container_wc_repo_dir, 'REPO_NAME')
-            DockerUtils.cmp_files(self, self.container, container_REPO_NAME_file,
-                                  host_file_content=os.path.basename(local_wc_repo))
-
-        # just ssh_key
-        manage_container = wc_env_manager.WcEnv([], '0.0.1', git_config_file=None)
-        self.tmp_container_managers.append(manage_container)
-        manage_container.create()
-
-        # just .gitconfig
-        manage_container = wc_env_manager.WcEnv([], '0.0.1', ssh_key=None)
-        self.tmp_container_managers.append(manage_container)
-        manage_container.create()
-
-    def test_create_exceptions(self):
-        manage_container = wc_env_manager.WcEnv([], '0.0.1')
-        with self.assertRaises(wc_env_manager.WcEnvManagerError):
-            manage_container.create(name='bad container name, spaces not legal')
-
-    def test_cp(self):
-        with self.assertRaises(subprocess.CalledProcessError):
-            # it is an error if DEST_PATH does not exist and ends with /
-            self.manage_container.cp(self.absolute_path_file, '/root/tmp/no such dir/')
-        path_in_container = os.path.join('/tmp/', os.path.basename(self.absolute_path_file))
-        self.manage_container.cp(self.absolute_path_file, path_in_container)
-        DockerUtils.cmp_files(self, self.manage_container.container, path_in_container, host_file_content=self.moving_text)
-
-    def test_pp_to_karr_lab_repos(self):
-        pythonpath = self.manage_container.pp_to_karr_lab_repos()
-        for wc_repo_path in self.test_wc_repos:
-            wc_repo = os.path.basename(wc_repo_path)
-            self.assertIn(wc_repo, pythonpath)
-        for cloned_karr_lab_repo in wc_env_manager.WcEnv.all_wc_repos():
-            self.assertIn(cloned_karr_lab_repo, pythonpath)
-        for wc_repo_path in self.test_wc_repos:
-            wc_repo = os.path.basename(wc_repo_path)
-            for cloned_karr_lab_repo in wc_env_manager.WcEnv.all_wc_repos():
-                self.assertTrue(pythonpath.index(wc_repo) <= pythonpath.index(cloned_karr_lab_repo))
-
-    def make_container(self, wc_repos=None, save_container=False, verbose=False):
-        # make a test container
-        # provide wc_repos to create volumes for them
-        # set save_container to save the container for later investigation
-        # set verbose to produce verbose output
-        if wc_repos is None:
-            wc_repos = []
-        manage_container = wc_env_manager.WcEnv(wc_repos, '0.0.1', verbose=verbose)
-        container = manage_container.create()
-        if save_container:
-            print("docker attach {}".format(container.name))
-        else:
-            self.tmp_container_managers.append(manage_container)
-        return manage_container
-
-    @unittest.skipIf(DONT_RUN_SLOW_TESTS, "skipping slow tests")
-    def test_load_karr_lab_tools(self):
-        manage_container = self.make_container()
-        with CaptureOutput() as capturer:
-            manage_container.load_karr_lab_tools()
-            try:
-                # test karr_lab_build_utils
-                self.assertIn('karr_lab_build_utils', manage_container.exec_run("karr_lab_build_utils -h"))
-            except Exception as e:
-                self.fail('Exception thrown by exec_run("karr_lab_build_utils -h") {}'.format(e))
-            expected_output = ['pip install pkg_utils --',
-                               'pip install karr_lab_build_utils --', ]
-            for line in expected_output:
-                self.assertIn(line, capturer.get_text())
-
-    def test_clone_karr_lab_repos(self):
-        manage_container = self.make_container()
-        manage_container.clone_karr_lab_repos()
-        kl_repos = manage_container.exec_run('ls {}'.format(manage_container.container_local_repos))
-        kl_repos = set(kl_repos.split('\n'))
-        self.assertTrue(set(wc_env_manager.WcEnv.all_wc_repos()).issubset(kl_repos))
-
-    @unittest.skipIf(DONT_RUN_SLOW_TESTS, "skipping slow tests")
-    def test_run(self):
-        manage_container = self.make_container(wc_repos=self.test_wc_repos)
-        self.assertEqual(type(manage_container.run()), docker.models.containers.Container)
-
-    def test_cp_exceptions(self):
-        manage_container = wc_env_manager.WcEnv([], '0.0.1')
-        with self.assertRaises(wc_env_manager.WcEnvManagerError):
-            manage_container.cp(self.absolute_path_file, '')
-        with self.assertRaises(wc_env_manager.WcEnvManagerError):
-            manage_container.cp('no such file', '')
-
-    def test_exec_run(self):
-        with CaptureOutput(relay=False) as capturer:
-            manage_container = self.make_container(verbose=True)
-            with self.assertRaises(wc_env_manager.WcEnvManagerError):
-                manage_container.exec_run('no_such_command x')
-            ls = set(manage_container.exec_run('ls').split('\n'))
-            self.assertTrue(set('usr bin home tmp root etc lib'.split()).issubset(ls))
-            verbose_output = ['Running: containers.run',
-                              'Running: container.exec_run(ssh-keyscan',
-                              'Running: container.exec_run(no_such_command x)',
-                              'Running: container.exec_run(ls)']
-            for verbose_line in verbose_output:
-                self.assertIn(verbose_line, capturer.get_text())
+class ExampleTestCase(unittest.TestCase):
+    def test(self):
+        self.assertTrue(True)
+        self.assertFalse(False)

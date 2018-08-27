@@ -33,6 +33,7 @@ def get_config(extra=None):
 
     context = {
         'HOME': str(pathlib.Path.home()),
+        'ROOT': pkg_resources.resource_filename('wc_env_manager', '.'),
     }
 
     return wc_utils.config.ConfigManager(paths).get_config(extra=extra, context=context)

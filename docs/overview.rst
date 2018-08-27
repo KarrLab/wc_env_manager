@@ -1,47 +1,64 @@
 Overview
 ========
 
--------------------------------------
-Using `wc_env_manager`
--------------------------------------
 
-After installation, use `wc_env_manager` by creating a wc environment, and then executing commands in the environment. `wc` is the primary application for using the environment. It supports multiple commands, which in turn have sub-commands, options and arguments:
-
-* Run `wc create` to create a new wc environment.
-* Run `wc reuse <name>` to reuse an existing environment called `<name>`.
-* Run `wc --help` to obtain help for `wc_env_manager`, including descriptions of the 
-  arguments for each command.
-
+Features
 -------------------------------------
+`wc_env_manager` provides a high-level interface for the following modeling tasks
+
+* Build the Docker image
+* Remove the Docker image
+* Push/pull the Docker image
+* Create Docker containers
+
+    1. Mount host directories into container
+    2. Copy files (such as configuration files and authentication keys into container
+    3. Install GitHub SSH key
+    4. Verify access to GitHub
+    5. Install Python packages from PyPI
+    6. Install Python package from GitHub (e.g. WC models and WC modeling tools)
+    7. Install Python packages in mounted directories from host
+
+* Run models/tools in Docker containers
+    
+    * Run the WC command line utility inside Docker containers, including with a 
+      mixture of code installed from GitHub and mounted from the host
+    * Run Python sessions in Docker containers, including running code on the host
+      mounted to the container
+    * Test Python code on host by mounting the code to a Docker container and using pytest
+      to test the code inside the container
+
+* Copy files to/from Docker container
+* List Docker containers of the image
+* Get CPU, memory, network usage statistics of Docker containers
+* Stop Docker containers
+* Remove Docker containers
+* Login to DockerHub
+
+
 How `wc_env_manager` works
 -------------------------------------
 
-`wc_env_manager` uses the Docker container system to create the environment, and to make the environment portable to the major operating systems that Docker supports, including Linux, Mac OSX, and Windows.
-`wc_env_manager` has a layered architecture:
+`wc_env_manager` is based on Docker containers which enable virtual environments within all major operating systems including Linux, Mac OSX, and Windows, and the DockerHub repository for versioning and sharing virtual environments.
 
-* At the top, shared file system links (`Docker volumes`) to a user's local 
-  customized clones of Karr Lab GitHub repository and other software they make available 
-  to `wc_env_manager`. The access to these packages is managed by changing the container's 
-  ``PYTHONPATH`` environment variable. This layer also include security credentials 
-  and other configuration data.
-* The WC software pipeline, cloned from the `Karr Lab GitHub repository <https://github.com/KarrLab/>`_. 
-  This layer and the next one are loaded into a `Docker container` created by `wc create`.
-* Other Python package needed by WC software pipeline
-* Python and the essential non-Python packages needed by the WC software pipeline. 
-  These bottom two layers are loaded into a `wc_env_manager` Docker image.
-* At the bottom, a Docker container running Ubuntu Linux
-
----------------------------------------
-Precautions when using `wc_env_manager`
----------------------------------------
-
-Shared volumes
+1. `wc_env_manager` creates a Docker image with the third-party dependencies needed for WC modeling or pulls 
+   this image from DockerHub. This image represents an Ubuntu Linux machine.
+2. `wc_env_manager` uses this Docker image to create a Docker container with the WC models, WC modeling tools,
+   and the configuration files and authentication keys needed for WC modeling. This includes mounting host directories
+   into the Docker container so that host code can be run inside the Docker
+3. `wc_env_manager` uses this container to run WC models and WC modeling tools, including versions of the tools
+   on the host which are mounted into the container. `wc_env_manager` provides specific support for using the container
+   to test and generate documentation for models and tools on the host which are moutined into the container.
 
 
--------------------------------------
-Other text
+Caveats and troubleshooting
 -------------------------------------
 
-Since different parts of the WC software pipeline use different packages and repositories, and some packages are only
-required for certain functionality (optional requirements) the set of required software depends on the pipeline parts and
-functionality being used.
+* Code run with `wc_env_manager` in Docker containers can create host files and overwrite existing host files. This is because `wc_env_manager` mounts host directories into Docker containers.
+* `wc_env_manager` can be used in conjunction with running code on your host machine. However, using different versions of Python between your host and the Docker containers can create Python caches and compiled Python files that are incompatible between your host and the Docker containers. Before switching between running code on your host your and the Docker containers, you may need to remove all ``__pycache__`` subdirectories and ``*.pyc`` files from host packages mounted into the Docker containers.
+* Code run in Docker containers will not have access to the absolute paths of your host and vice-versa. Consequently, arguments that represent absolute host paths or which contain absolute host paths must be mapped from absolute host paths to the equivalent container path. Similarly outputs with represent or contain absolute container paths must be mapped to the equivalent host paths. `wc_env_manager` contains two methods to help map between host and container paths.
+
+  * :obj:`wc_env_manager.convert_host_to_container_path`
+  * :obj:`wc_env_manager.convert_container_to_host_path`
+
+* Running code with `wc_env_manager` in Docker containers will be slower than running the same code on your host. This is because `wc_env_manager` is based on Docker containers, which add an additional layer of abstraction between your code and your processor.

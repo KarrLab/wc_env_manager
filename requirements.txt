@@ -1,5 +1,7 @@
 cement >= 3.0.0 # for command line programs
 configobj
-python_dateutil
 docker
+gitpython
+python_dateutil
+pyyaml
 git+git://github.com/KarrLab/wc_utils#egg=wc_utils-0.0.1a5
