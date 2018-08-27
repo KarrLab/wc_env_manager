@@ -96,12 +96,14 @@ class WcEnvManager(object):
         verbose (:obj:`bool`): if :obj:`True`, print status messages to stdout
 
         _docker_client (:obj:`docker.client.DockerClient`): client connected to the Docker daemon
+        _base_docker_image (:obj:`docker.models.images.Image`): current base Docker image
         _docker_image (:obj:`docker.models.images.Image`): current Docker image
         _docker_container (:obj:`docker.models.containers.Container`): current Docker container
     """
 
     # todo: reduce privileges in Docker image by creating separate user
     # todo: manipulate Python path for packages without setup.py
+    # todo: remove Mosek, XPRESS license files from Docker image and move to config repo
 
     def __init__(self,
                  base_docker_image_repo=None, base_docker_image_tags=None,
@@ -166,7 +168,12 @@ class WcEnvManager(object):
         self._docker_client = docker.from_env()
 
         # get image and current container
-        self.set_docker_image(self.get_latest_docker_image(self.base_docker_image_repo))
+        self._base_docker_image = None
+        self._docker_image = None
+        self._docker_container = None
+
+        self.set_docker_image(self.base_docker_image_repo, self.get_latest_docker_image(self.base_docker_image_repo))
+        #self.set_docker_image(self.docker_image_repo, self.get_latest_docker_image(self.docker_image_repo)) # todo: uncomment
         self.set_docker_container(self.get_latest_docker_container())
 
     def build_base_docker_image(self):
@@ -227,9 +234,12 @@ class WcEnvManager(object):
                     pass
 
         # store reference to latest image
-        self._docker_image = image
+        self._base_docker_image = image
 
         return image
+
+    def build_docker_image(self):
+        pass
 
     def remove_docker_image(self, image_repo, image_tags, force=False):
         """ Remove version of Docker image
@@ -266,20 +276,29 @@ class WcEnvManager(object):
 
         Returns:
             :obj:`docker.models.images.Image`: Docker image
-        """
-        self._docker_image = self._docker_client.images.pull(image_repo, tag=image_tags[0])
-        return self._docker_image
+        """        
+        image = self._docker_client.images.pull(image_repo, tag=image_tags[0])
+        if image_repo == self.base_docker_image_repo and image_tags == self.base_docker_image_tags:
+            self._base_docker_image = image
+        elif image_repo == self.docker_image_repo and image_tags == self.docker_image_tags:
+            self._docker_image = image
+        return image
 
-    def set_docker_image(self, image):
+    def set_docker_image(self, image_repo, image):
         """ Set the Docker image for WC modeling environment
 
         Args:
+            image_repo (:obj:`str`): image repository
             image (:obj:`docker.models.images.Image` or :obj:`str`): Docker image
                 or name of Docker image
         """
         if isinstance(image, str):
             image = self._docker_client.images.get(image)
-        self._docker_image = image
+        
+        if image_repo == self.base_docker_image_repo:
+            self._base_docker_image = image
+        elif image_repo == self.docker_image_repo:
+            self._docker_image = image
 
     def get_latest_docker_image(self, image_repo):
         """ Get the lastest version of the Docker image for the WC modeling environment
@@ -295,13 +314,17 @@ class WcEnvManager(object):
         except docker.errors.ImageNotFound:
             return None
 
-    def get_docker_image_version(self):
+    def get_docker_image_version(self, image):
         """ Get the version of the Docker image
+
+        Args:
+            image (:obj:`docker.models.images.Image`): image
 
         Returns:
             :obj:`str`: docker image version
         """
-        for tag in self._docker_image.tags:
+
+        for tag in image.tags:
             _, _, version = tag.partition(':')
             if re.match(r'^\d+\.\d+\.\d+[a-zA-Z0-9]*$', version):
                 return version
@@ -484,50 +507,6 @@ class WcEnvManager(object):
         # remove temporary files
         os.remove(host_temp_filename)
         self.run_process_in_docker_container(['rm', container_temp_filename], container_user=WcEnvUser.root)
-
-    def convert_host_to_container_path(self, host_path):
-        """ Get the corresponding container path for a host path
-
-        Args:
-            host_path (:obj:`str`): path on host
-
-        Returns:
-            :obj:`str`: corresponding path in container
-
-        Raises:
-            :obj:`WcEnvManagerError`: if the host path is not mounted
-                onto the container
-        """
-        host_path = os.path.abspath(host_path)
-        for host_mount_path, container_mount_attrs in self.paths_to_mount_to_docker_container.items():
-            host_mount_path = os.path.abspath(host_mount_path)
-            container_mount_path = container_mount_attrs['bind']
-            if host_path.startswith(host_mount_path):
-                relpath = os.path.relpath(host_path, host_mount_path)
-                return os.path.join(container_mount_path, relpath)
-        raise WcEnvManagerError('{} is not mounted into the container'.format(
-            host_path))
-
-    def convert_container_to_host_path(self, container_path):
-        """ Get the corresponding host path for a container path
-
-        Args:
-            container_path (:obj:`str`): path in container
-
-        Returns:
-            :obj:`str`: corresponding path in host
-
-        Raises:
-            :obj:`WcEnvManagerError`: if the container path is not mounted
-                from the host
-        """
-        for host_mount_path, container_mount_attrs in self.paths_to_mount_to_docker_container.items():
-            container_mount_path = container_mount_attrs['bind']
-            if container_path.startswith(container_mount_path):
-                relpath = os.path.relpath(container_path, container_mount_path)
-                return os.path.join(host_mount_path, relpath)
-        raise WcEnvManagerError('{} is not mounted into the container'.format(
-            container_path))
 
     def set_docker_container(self, container):
         """ Set the Docker containaer

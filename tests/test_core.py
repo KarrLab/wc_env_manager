@@ -177,16 +177,35 @@ class WcEnvManagerTestCase(unittest.TestCase):
         image = mgr.pull_docker_image(mgr.base_docker_image_repo, mgr.base_docker_image_tags)
         self.assertIsInstance(image, docker.models.images.Image)
 
+        mgr.docker_image_repo = mgr.base_docker_image_repo
+        mgr.docker_image_tags = mgr.base_docker_image_tags
+        mgr.base_docker_image_repo = None
+        mgr.base_docker_image_tags = None
+        image = mgr.pull_docker_image(mgr.docker_image_repo, mgr.docker_image_tags)
+        self.assertIsInstance(image, docker.models.images.Image)
+
     def test_set_docker_image(self):
         mgr = self.mgr
         image = mgr.get_latest_docker_image(mgr.base_docker_image_repo)
-
+        
+        mgr._base_docker_image = None
         mgr._docker_image = None
-        mgr.set_docker_image(image)
-        self.assertEqual(mgr._docker_image, image)
+        mgr.set_docker_image(mgr.base_docker_image_repo, image)
+        self.assertEqual(mgr._base_docker_image, image)
+        self.assertEqual(mgr._docker_image, None)
 
+        mgr._base_docker_image = None
         mgr._docker_image = None
-        mgr.set_docker_image(image.tags[0])
+        mgr.set_docker_image(mgr.base_docker_image_repo, image.tags[0])
+        self.assertEqual(mgr._base_docker_image, image)
+        self.assertEqual(mgr._docker_image, None)
+
+        mgr._base_docker_image = None
+        mgr._docker_image = None
+        mgr.docker_image_repo = mgr.base_docker_image_repo
+        mgr.base_docker_image_repo = None
+        mgr.set_docker_image(mgr.docker_image_repo, image.tags[0])
+        self.assertEqual(mgr._base_docker_image, None)
         self.assertEqual(mgr._docker_image, image)
 
     def test_get_latest_docker_image(self):
@@ -196,7 +215,7 @@ class WcEnvManagerTestCase(unittest.TestCase):
 
     def test_get_docker_image_version(self):
         mgr = self.mgr
-        version = mgr.get_docker_image_version()
+        version = mgr.get_docker_image_version(mgr._base_docker_image)
         self.assertRegex(version, r'^\d+\.\d+\.\d+[a-z0A-Z-9]*$')
 
     def test_create_docker_container(self):
@@ -426,60 +445,6 @@ class WcEnvManagerTestCase(unittest.TestCase):
         with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Repository not found'):
             mgr.install_python_packages_in_docker_container(
                 'git+https://github.com/KarrLab/undefined_package.git#egg=undefined_package-0.0.1[all]')
-
-    def test_convert_host_to_container_path(self):
-        mgr = self.mgr
-        mgr.paths_to_mount_to_docker_container = {
-            '/home/test_host_dir': {
-                'bind': '/root/test_container_dir',
-                'mode': 'rw',
-            },
-            '.': {
-                'bind': '/root/package',
-                'mode': 'rw',
-            }
-        }
-        self.assertEqual(mgr.convert_host_to_container_path(
-            '/home/test_host_dir/test_file'),
-            '/root/test_container_dir/test_file')
-        self.assertEqual(mgr.convert_host_to_container_path(
-            '/home/test_host_dir/a/b/c/test_file'),
-            '/root/test_container_dir/a/b/c/test_file')
-
-        self.assertEqual(mgr.convert_host_to_container_path(
-            'tests/test_core.py'),
-            '/root/package/tests/test_core.py')
-
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'not mounted'):
-            mgr.convert_host_to_container_path(
-                '/home/not_mounted/a/b/c/test_file')
-
-    def test_convert_container_to_host_path(self):
-        mgr = self.mgr
-        mgr.paths_to_mount_to_docker_container = {
-            '/home/test_host_dir': {
-                'bind': '/root/test_container_dir',
-                'mode': 'rw',
-            },
-            '.': {
-                'bind': '/root/package',
-                'mode': 'rw',
-            }
-        }
-        self.assertEqual(mgr.convert_container_to_host_path(
-            '/root/test_container_dir/test_file'),
-            '/home/test_host_dir/test_file')
-        self.assertEqual(mgr.convert_container_to_host_path(
-            '/root/test_container_dir/a/b/c/test_file'),
-            '/home/test_host_dir/a/b/c/test_file')
-
-        self.assertEqual(mgr.convert_container_to_host_path(
-            '/root/package/tests/test_core.py'),
-            './tests/test_core.py')
-
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'not mounted'):
-            mgr.convert_container_to_host_path(
-                '/root/not_mounted/a/b/c/test_file')
 
     def test_set_docker_container(self):
         mgr = self.mgr
