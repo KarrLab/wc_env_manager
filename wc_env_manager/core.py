@@ -197,6 +197,7 @@ class WcEnvManager(object):
                 dockerfile=os.path.basename(dockerfile_path),
                 pull=True,
                 buildargs=build_args,
+                rm=True,
             )
         except requests.exceptions.ConnectionError as exception:
             raise WcEnvManagerError("Docker connection error: service must be running:\n  {}".format(
