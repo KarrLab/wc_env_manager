@@ -17,25 +17,30 @@ class Test(unittest.TestCase):
 
     def test_get_config(self):
         config = wc_env_manager.config.core.get_config()
-        self.assertIn('docker_image_repo', config['wc_env_manager'])
-        self.assertIsInstance(config['wc_env_manager']['docker_image_repo'], str)
+        self.assertIn('base_image', config['wc_env_manager'])
+        self.assertIsInstance(config['wc_env_manager']['base_image']['repo'], str)
 
     def test_get_config_extra(self):
         extra = {
             'wc_env_manager': {
-                'docker_image_build_args': {
-                    'timezone': 'America/Los_Angeles',
-                }
-            }}
+                'base_image': {
+                    'build_args': {
+                        'timezone': 'America/Los_Angeles',
+                    },
+                },
+            },
+        }
         config = wc_env_manager.config.core.get_config(extra=extra)
-        self.assertEqual(config['wc_env_manager']['docker_image_build_args']['timezone'], 'America/Los_Angeles')
+        self.assertEqual(config['wc_env_manager']['base_image']['build_args']['timezone'], 'America/Los_Angeles')
 
     def test_get_config_context(self):
         extra = {
             'wc_env_manager': {
-                'dockerfile_path': '${HOME}/Dockerfile',
+                'base_image': {
+                    'dockerfile_path': '${HOME}/Dockerfile',
+                },
             },
         }
         config = wc_env_manager.config.core.get_config(extra=extra)
-        self.assertEqual(config['wc_env_manager']['dockerfile_path'],
+        self.assertEqual(config['wc_env_manager']['base_image']['dockerfile_path'],
                          '{}/Dockerfile'.format(pathlib.Path.home()))

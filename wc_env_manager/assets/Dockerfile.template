@@ -1,0 +1,18 @@
+FROM {{ repo }}:{{ tags[0] }}
+
+# Copy files
+{% for path in paths_to_copy -%}
+COPY {{ path['host'] }} {{ path['image'] }}
+{% endfor %}
+
+# Install GitHub SSH key
+RUN touch ~/.ssh/known_hosts \
+    && sed -i '/github.com ssh-rsa/d' ~/.ssh/known_hosts \
+    && ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+# Install Python packages from PyPI and GitHub
+RUN pip{{ python_version }} install --process-dependency-links \
+    {{ python_packages|replace('\n', ' \\\n    ') }}
+
+# Set default command
+CMD bash
