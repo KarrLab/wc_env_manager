@@ -318,10 +318,17 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
     def setUp(self):
         mgr = self.mgr = wc_env_manager.core.WcEnvManager()
         mgr.pull_image(mgr.config['base_image']['repo'], mgr.config['base_image']['tags'])
+
+        mgr.config['image']['tags'] = ['test']
+        mgr.config['image']['python_packages'] = ''
+        mgr.build_image()
+
         mgr.remove_containers(force=True)
 
     def tearDown(self):
-        self.mgr.remove_containers(force=True)
+        mgr = self.mgr
+        mgr.remove_image(mgr.config['image']['repo'], mgr.config['image']['tags'])
+        mgr.remove_containers(force=True)
 
     def test_create_container(self):
         mgr = self.mgr
@@ -329,8 +336,6 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
         temp_dir_name_a = tempfile.mkdtemp()
         temp_dir_name_b = tempfile.mkdtemp()
 
-        mgr.config['image']['repo'] = mgr.config['base_image']['repo']
-        mgr.config['image']['tags'] = mgr.config['base_image']['tags']
         mgr.config['container']['paths_to_mount'] = {
             temp_dir_name_a: {
                 'bind': '/root/host/mount-a',
@@ -362,8 +367,6 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
     def test_setup_container(self):
         mgr = self.mgr
-        mgr.config['image']['repo'] = mgr.config['base_image']['repo']
-        mgr.config['image']['tags'] = mgr.config['base_image']['tags']
         mgr.config['verbose'] = True
 
         temp_dir_name = tempfile.mkdtemp()
@@ -391,8 +394,6 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
     def test_setup_container_with_python_packages(self):
         mgr = self.mgr
-        mgr.config['image']['repo'] = mgr.config['base_image']['repo']
-        mgr.config['image']['tags'] = mgr.config['base_image']['tags']
         mgr.config['verbose'] = True
         container = mgr.create_container()
 
@@ -410,8 +411,6 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
     def test_setup_container_with_python_packages_error(self):
         mgr = self.mgr
-        mgr.config['image']['repo'] = mgr.config['base_image']['repo']
-        mgr.config['image']['tags'] = mgr.config['base_image']['tags']
         mgr.config['image']['python_packages'] = ''
 
         container = mgr.create_container()
@@ -421,8 +420,6 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
     def test_copy_path_to_from_docker_container(self):
         mgr = self.mgr
-        mgr.config['image']['repo'] = mgr.config['base_image']['repo']
-        mgr.config['image']['tags'] = mgr.config['base_image']['tags']
         mgr.create_container()
 
         temp_dir_name = tempfile.mkdtemp()
@@ -448,8 +445,6 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
     def test_set_container(self):
         mgr = self.mgr
-        mgr.config['image']['repo'] = mgr.config['base_image']['repo']
-        mgr.config['image']['tags'] = mgr.config['base_image']['tags']
         container = mgr.create_container()
         self.assertEqual(mgr._container, container)
         self.assertEqual(mgr.get_latest_container(), container)
@@ -464,23 +459,17 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
     def test_get_latest_container(self):
         mgr = self.mgr
-        mgr.config['image']['repo'] = mgr.config['base_image']['repo']
-        mgr.config['image']['tags'] = mgr.config['base_image']['tags']
         container = mgr.create_container()
         self.assertEqual(mgr.get_latest_container(), container)
 
     def test_get_containers(self):
         mgr = self.mgr
-        mgr.config['image']['repo'] = mgr.config['base_image']['repo']
-        mgr.config['image']['tags'] = mgr.config['base_image']['tags']
         container = mgr.create_container()
         containers = mgr.get_containers()
         self.assertEqual(containers, [container])
 
     def test_run_process_in_container(self):
         mgr = self.mgr
-        mgr.config['image']['repo'] = mgr.config['base_image']['repo']
-        mgr.config['image']['tags'] = mgr.config['base_image']['tags']
         mgr.create_container()
 
         # not verbose
@@ -512,8 +501,6 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
     def test_get_container_stats(self):
         mgr = self.mgr
-        mgr.config['image']['repo'] = mgr.config['base_image']['repo']
-        mgr.config['image']['tags'] = mgr.config['base_image']['tags']
         mgr.create_container()
         stats = mgr.get_container_stats()
         self.assertIsInstance(stats, dict)
@@ -522,8 +509,6 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
     def test_stop_container(self):
         mgr = self.mgr
-        mgr.config['image']['repo'] = mgr.config['base_image']['repo']
-        mgr.config['image']['tags'] = mgr.config['base_image']['tags']
         container = mgr.create_container()
         self.assertEqual(container.status, 'created')
         mgr.stop_container()
@@ -531,8 +516,6 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
     def test_remove_container(self):
         mgr = self.mgr
-        mgr.config['image']['repo'] = mgr.config['base_image']['repo']
-        mgr.config['image']['tags'] = mgr.config['base_image']['tags']
         container = mgr.create_container()
         self.assertNotEqual(mgr._container, None)
         mgr.remove_container(force=True)
@@ -541,8 +524,6 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
     def test_remove_containers(self):
         mgr = self.mgr
-        mgr.config['image']['repo'] = mgr.config['base_image']['repo']
-        mgr.config['image']['tags'] = mgr.config['base_image']['tags']
         container = mgr.create_container()
         self.assertNotEqual(mgr._container, None)
         mgr.remove_containers(force=True)
