@@ -70,7 +70,6 @@ class WcEnvManager(object):
         _container (:obj:`docker.models.containers.Container`): current Docker container
     """
 
-    # todo: update container tests to work on image rather than base image
     # todo: reduce privileges in Docker image by creating separate user
     # todo: manipulate Python path for packages without setup.py
     # todo: update docs
