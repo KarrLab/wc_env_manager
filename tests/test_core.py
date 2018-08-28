@@ -549,6 +549,40 @@ class WcEnvHostTestCase(unittest.TestCase):
             self.assertEqual(capture_output.get_text(), 'here')
 
 
+class FullWcEnvTestCase(unittest.TestCase):
+    def setUp(self):
+        self.mgr = mgr = wc_env_manager.core.WcEnvManager()
+
+        config = mgr.config
+        config['image']['tags'] = ['test']
+
+    def tearDown(self):
+        mgr = self.mgr
+        config = mgr.config
+        mgr.remove_containers(force=True)
+        mgr.remove_image(config['image']['repo'], config['image']['tags'])
+
+    def test(self):
+        mgr = self.mgr
+        config = mgr.config
+        config['verbose'] = True
+
+        # mgr.build_base_image()
+        mgr.pull_image(config['base_image']['repo'], config['base_image']['tags'])
+
+        mgr.login_docker_hub()
+        mgr.push_image(config['base_image']['repo'], config['base_image']['tags'])
+
+        mgr.build_image()
+
+        mgr.create_container()
+        mgr.setup_container()
+
+        with capturer.CaptureOutput(relay=True) as capture_output:
+            mgr.run_process_in_container(['wc', '--help'])
+            self.assertRegex(capture_output.get_text(), 'usage: wc \[\-h\]')
+
+
 class ExampleTestCase(unittest.TestCase):
     def test(self):
         self.assertTrue(True)

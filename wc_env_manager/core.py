@@ -43,9 +43,11 @@ import jinja2
 import json
 import os
 import pkg_resources
+import random
 import re
 import requests
 import shutil
+import string
 import subprocess
 import tempfile
 import wc_env_manager.config.core
@@ -70,9 +72,12 @@ class WcEnvManager(object):
         _container (:obj:`docker.models.containers.Container`): current Docker container
     """
 
-    # todo: reduce privileges in Docker image by creating separate user
-    # todo: manipulate Python path for packages without setup.py
+    # todo: merge with karr_lab_docker_images
+    #       compile_requirements
+    # todo: CLI
     # todo: update docs
+    # todo: reduce privileges in Docker image by creating separate user; update docs
+    # todo: manipulate Python path for packages without setup.py
 
     def __init__(self, config=None):
         """
@@ -112,6 +117,9 @@ class WcEnvManager(object):
 
         Returns:
             :obj:`docker.models.images.Image`: Docker image
+
+        Raises:
+            :obj:`WcEnvManagerError`: if a copied configuration file clashes with 
         """
         # create temporary directory for build context
         temp_dir_name = tempfile.mkdtemp()
@@ -133,14 +141,29 @@ class WcEnvManager(object):
                 shutil.copytree(path['host'], temp_path_host)
             path['host'] = os.path.abspath(path['host'])[1:]
 
-        python_packages = '\n'.join(pkg.strip() for pkg in self.config['image']['python_packages'].strip().split('\n'))
+        if self.config['image']['python_packages']:
+            while True:
+                requirements_file_name = 'requirements.{}.txt'.format(
+                    ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(16)))
+                if not os.path.isfile(os.path.join(temp_dir_name, requirements_file_name)):
+                    break
+            paths_to_copy.append({
+                'host': requirements_file_name,
+                'image': os.path.join('/tmp', requirements_file_name),
+            })
+            with open(os.path.join(temp_dir_name, requirements_file_name), 'w') as file:
+                file.write(self.config['image']['python_packages'])
+
+            image_requirements_file_name = os.path.join('/tmp', requirements_file_name)
+        else:
+            image_requirements_file_name = None
 
         context = {
             'repo': self.config['base_image']['repo'],
             'tags': self.config['base_image']['tags'],
             'paths_to_copy': paths_to_copy,
             'python_version': self.config['image']['python_version'],
-            'python_packages': python_packages,
+            'requirements_file_name': image_requirements_file_name,
         }
 
         # render Dockerfile
