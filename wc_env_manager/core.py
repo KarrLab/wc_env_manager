@@ -70,7 +70,7 @@ class WcEnvManager(object):
         _container (:obj:`docker.models.containers.Container`): current Docker container
     """
 
-    # todo: simplify method names    
+    # todo: update container tests to work on image rather than base image
     # todo: reduce privileges in Docker image by creating separate user
     # todo: manipulate Python path for packages without setup.py
     # todo: update docs
@@ -94,21 +94,21 @@ class WcEnvManager(object):
         self._image = None
         self._container = None
 
-        self.set_docker_image(config['base_image']['repo'], self.get_latest_docker_image(config['base_image']['repo']))
-        self.set_docker_image(config['image']['repo'], self.get_latest_docker_image(config['image']['repo']))
-        self.set_docker_container(self.get_latest_docker_container())
+        self.set_image(config['base_image']['repo'], self.get_latest_image(config['base_image']['repo']))
+        self.set_image(config['image']['repo'], self.get_latest_image(config['image']['repo']))
+        self.set_container(self.get_latest_container())
 
-    def build_base_docker_image(self):
+    def build_base_image(self):
         """ Build base Docker image for WC modeling environment
 
         Returns:
             :obj:`docker.models.images.Image`: Docker image
         """
         config = self.config['base_image']
-        return self._build_docker_image(config['repo'], config['tags'], config['dockerfile_path'],
-                                        config['build_args'], config['context_path'])
+        return self._build_image(config['repo'], config['tags'], config['dockerfile_path'],
+                                 config['build_args'], config['context_path'])
 
-    def build_docker_image(self):
+    def build_image(self):
         """ Build Docker image for WC modeling environment
 
         Returns:
@@ -119,7 +119,7 @@ class WcEnvManager(object):
 
         # add files to context and prepare for copy directives in Dockerfile
         paths_to_copy = \
-            self.get_config_file_paths_to_copy_to_docker_image() \
+            self.get_config_file_paths_to_copy_to_image() \
             + copy.deepcopy(self.config['image']['paths_to_copy'].values())
 
         for path in paths_to_copy:
@@ -155,14 +155,14 @@ class WcEnvManager(object):
 
         # build image
         config = self.config['image']
-        self._build_docker_image(config['repo'], config['tags'],
-                                 dockerfile_name, {}, temp_dir_name)
+        self._build_image(config['repo'], config['tags'],
+                          dockerfile_name, {}, temp_dir_name)
 
         # cleanup temporary directory
         shutil.rmtree(temp_dir_name)
 
-    def _build_docker_image(self, image_repo, image_tags,
-                            dockerfile_path, build_args, context_path):
+    def _build_image(self, image_repo, image_tags,
+                     dockerfile_path, build_args, context_path):
         """ Build Docker image
 
         Args:
@@ -237,7 +237,7 @@ class WcEnvManager(object):
 
         return image
 
-    def get_config_file_paths_to_copy_to_docker_image(self):
+    def get_config_file_paths_to_copy_to_image(self):
         """ Get list of configuration file paths to copy from ~/.wc to Docker image 
 
         Returns:
@@ -268,7 +268,7 @@ class WcEnvManager(object):
 
         return paths_to_copy_to_image
 
-    def remove_docker_image(self, image_repo, image_tags, force=False):
+    def remove_image(self, image_repo, image_tags, force=False):
         """ Remove version of Docker image
 
         Args:
@@ -280,12 +280,12 @@ class WcEnvManager(object):
         for tag in image_tags:
             self._docker_client.images.remove('{}:{}'.format(image_repo, tag), force=True)
 
-    def login_dockerhub(self):
+    def login_docker_hub(self):
         """ Login to DockerHub """
         config = self.config['docker_hub']
         self._docker_client.login(config['username'], password=config['password'])
 
-    def push_docker_image(self, image_repo, image_tags):
+    def push_image(self, image_repo, image_tags):
         """ Push Docker image to DockerHub 
 
         Args:
@@ -295,7 +295,7 @@ class WcEnvManager(object):
         for tag in image_tags:
             self._docker_client.images.push(image_repo, tag)
 
-    def pull_docker_image(self, image_repo, image_tags):
+    def pull_image(self, image_repo, image_tags):
         """ Pull Docker image for WC modeling environment
 
         Args:
@@ -312,7 +312,7 @@ class WcEnvManager(object):
             self._image = image
         return image
 
-    def set_docker_image(self, image_repo, image):
+    def set_image(self, image_repo, image):
         """ Set the Docker image for WC modeling environment
 
         Args:
@@ -328,7 +328,7 @@ class WcEnvManager(object):
         elif image_repo == self.config['image']['repo']:
             self._image = image
 
-    def get_latest_docker_image(self, image_repo):
+    def get_latest_image(self, image_repo):
         """ Get the lastest version of the Docker image for the WC modeling environment
 
         Args:
@@ -342,7 +342,7 @@ class WcEnvManager(object):
         except docker.errors.ImageNotFound:
             return None
 
-    def get_docker_image_version(self, image):
+    def get_image_version(self, image):
         """ Get the version of the Docker image
 
         Args:
@@ -357,7 +357,7 @@ class WcEnvManager(object):
             if re.match(r'^\d+\.\d+\.\d+[a-zA-Z0-9]*$', version):
                 return version
 
-    def create_docker_container(self, tty=True):
+    def create_container(self, tty=True):
         """ Create Docker container for WC modeling environmet
 
         Args:
@@ -366,7 +366,7 @@ class WcEnvManager(object):
         Returns:
             :obj:`docker.models.containers.Container`: Docker container
         """
-        name = self.make_docker_container_name()
+        name = self.make_container_name()
         container = self._container = self._docker_client.containers.run(
             self.config['image']['repo'] + ':' + self.config['image']['tags'][0], name=name,
             volumes=self.config['container']['paths_to_mount'],
@@ -375,7 +375,7 @@ class WcEnvManager(object):
             user=WcEnvUser.root.name)
         return container
 
-    def make_docker_container_name(self):
+    def make_container_name(self):
         """ Create a timestamped name for a Docker container
 
         Returns:
@@ -383,7 +383,7 @@ class WcEnvManager(object):
         """
         return datetime.now().strftime(self.config['container']['name_format'])
 
-    def setup_docker_container(self, upgrade=False, process_dependency_links=True):
+    def setup_container(self, upgrade=False, process_dependency_links=True):
         """ Install Python packages into Docker container
 
         Args:
@@ -397,8 +397,8 @@ class WcEnvManager(object):
         os.close(file)
 
         # copy requirements to temporary file in container
-        container_temp_filename, _ = self.run_process_in_docker_container('mktemp', container_user=WcEnvUser.root)
-        self.copy_path_to_docker_container(host_temp_filename, container_temp_filename)
+        container_temp_filename, _ = self.run_process_in_container('mktemp', container_user=WcEnvUser.root)
+        self.copy_path_to_container(host_temp_filename, container_temp_filename)
 
         # install requirements
         cmd = ['pip{}'.format(self.config['image']['python_version']), 'install', '-r', container_temp_filename]
@@ -406,13 +406,13 @@ class WcEnvManager(object):
             cmd.append('-U')
         if process_dependency_links:
             cmd.append('--process-dependency-links')
-        self.run_process_in_docker_container(cmd, container_user=WcEnvUser.root)
+        self.run_process_in_container(cmd, container_user=WcEnvUser.root)
 
         # remove temporary files
         os.remove(host_temp_filename)
-        self.run_process_in_docker_container(['rm', container_temp_filename], container_user=WcEnvUser.root)
+        self.run_process_in_container(['rm', container_temp_filename], container_user=WcEnvUser.root)
 
-    def copy_path_to_docker_container(self, local_path, container_path, overwrite=True, container_user=WcEnvUser.root):
+    def copy_path_to_container(self, local_path, container_path, overwrite=True, container_user=WcEnvUser.root):
         """ Copy file or directory to Docker container
 
         Implemented using subprocess because docker-py does not (as 2018-08-22)
@@ -427,7 +427,7 @@ class WcEnvManager(object):
             :obj:`WcEnvManagerError`: if the container_path already exists and 
                 :obj:`overwrite` is :obj:`False`
         """
-        is_path, _ = self.run_process_in_docker_container(
+        is_path, _ = self.run_process_in_container(
             'bash -c "if [ -f {0} ] || [ -d {0} ]; then echo 1; fi"'.format(container_path),
             container_user=container_user)
         if is_path and not overwrite:
@@ -438,7 +438,7 @@ class WcEnvManager(object):
             self._container.name + ':' + container_path,
         ])
 
-    def copy_path_from_docker_container(self, container_path, local_path, overwrite=True):
+    def copy_path_from_container(self, container_path, local_path, overwrite=True):
         """ Copy file/directory from Docker container
 
         Implemented using subprocess because docker-py does not (as 2018-08-22)
@@ -462,7 +462,7 @@ class WcEnvManager(object):
             local_path,
         ])
 
-    def set_docker_container(self, container):
+    def set_container(self, container):
         """ Set the Docker containaer
 
         Args:
@@ -473,19 +473,19 @@ class WcEnvManager(object):
             container = self._docker_client.containers.get(container)
         self._container = container
 
-    def get_latest_docker_container(self):
+    def get_latest_container(self):
         """ Get current Docker container
 
         Returns:
             :obj:`docker.models.containers.Container`: Docker container
         """
-        containers = self.get_docker_containers(sort_by_read_time=True)
+        containers = self.get_containers(sort_by_read_time=True)
         if containers:
             return containers[0]
         else:
             return None
 
-    def get_docker_containers(self, sort_by_read_time=False):
+    def get_containers(self, sort_by_read_time=False):
         """ Get list of Docker containers that are WC modeling environments
 
         Args:
@@ -509,8 +509,8 @@ class WcEnvManager(object):
 
         return containers
 
-    def run_process_in_docker_container(self, cmd, work_dir=None, env=None, check=True,
-                                        container_user=WcEnvUser.root):
+    def run_process_in_container(self, cmd, work_dir=None, env=None, check=True,
+                                 container_user=WcEnvUser.root):
         """ Run a process in the current Docker container
 
         Args:
@@ -556,7 +556,7 @@ class WcEnvManager(object):
 
         return (result.output.decode('utf-8')[0:-1], result.exit_code)
 
-    def get_docker_container_stats(self):
+    def get_container_stats(self):
         """ Get statistics about the CPU, io, memory, network performance of the Docker container
 
         Returns:
@@ -564,11 +564,11 @@ class WcEnvManager(object):
         """
         return self._container.stats(stream=False)
 
-    def stop_docker_container(self):
+    def stop_container(self):
         """ Remove current Docker container """
         self._container.stop()
 
-    def remove_docker_container(self, force=False):
+    def remove_container(self, force=False):
         """ Remove current Docker container
 
         Args:
@@ -578,14 +578,14 @@ class WcEnvManager(object):
         self._container.remove(force=force)
         self._container = None
 
-    def remove_docker_containers(self, force=False):
+    def remove_containers(self, force=False):
         """ Remove Docker all containers that are WC modeling environments
 
         Args:
             force (:obj:`bool`, optional): if :obj:`True`, force removal of the container
                 (e.g. remove containers even if they are running)
         """
-        for container in self.get_docker_containers():
+        for container in self.get_containers():
             container.remove(force=force)
         self._container = None
 
