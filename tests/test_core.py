@@ -71,6 +71,31 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
         self.assertIn('numpy', requirements)
         self.assertNotIn('log', requirements)
 
+    def test_get_required_python_packages_errors(self):
+        mgr = self.mgr
+        self.mgr.config['image']['python_packages'] = '''
+        git+https://github.com/KarrLab/wc_utils.git#egg=wc_utils-0.0.1[all]
+        '''
+
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Extras are not supported'):
+            return_value = ([], {'all': ['pkg[opt]']}, None, None,)
+            with mock.patch('pkg_utils.get_dependencies', return_value=return_value):
+                mgr.get_required_python_packages()
+
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Specifiers are not supported'):
+            return_value = ([], {'all': ["pkg; python_version > '2.7'"]}, None, None,)
+            with mock.patch('pkg_utils.get_dependencies', return_value=return_value):
+                mgr.get_required_python_packages()
+
+        return_value = ([], {'all': ['pkg', 'pkg > 3.0']}, None, None,)
+        with mock.patch('pkg_utils.get_dependencies', return_value=return_value):
+            mgr.get_required_python_packages()
+
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Conflicting specs'):
+            return_value = ([], {'all': ['pkg > 2.7', 'pkg > 3.0']}, None, None,)
+            with mock.patch('pkg_utils.get_dependencies', return_value=return_value):
+                mgr.get_required_python_packages()
+
     def test_build_base_image(self):
         mgr = self.mgr
         config = mgr.config
@@ -316,12 +341,16 @@ class WcEnvManagerDockerHubTestCase(unittest.TestCase):
         mgr = self.mgr
         self.assertNotIn('docker.io', mgr._docker_client.api._auth_configs['auths'])
         mgr.login_docker_hub()  # test for no runtime error
-        self.assertIn('docker.io', mgr._docker_client.api._auth_configs['auths'])
 
     def test_push_image(self):
         mgr = self.mgr
         mgr.login_docker_hub()
         mgr.push_image(mgr.config['base_image']['repo'], mgr.config['base_image']['tags'])
+
+    def test_push_image_error(self):
+        mgr = self.mgr
+        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'failed'):
+            mgr.push_image(mgr.config['base_image']['repo'], mgr.config['base_image']['tags'])
 
     def test_pull_image(self):
         mgr = self.mgr

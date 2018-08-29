@@ -238,7 +238,7 @@ class WcEnvManager(object):
         if self.config['image']['python_packages']:
             host_requirements_file_name = os.path.join(temp_dir_name, 'requirements.txt')
             if os.path.isfile(host_requirements_file_name):
-                raise WcEnvManagerError('Config files cannot have name `requirements.txt`')
+                raise WcEnvManagerError('Copied files cannot have name `requirements.txt`')  # pragma: no cover
             paths_to_copy.append({
                 'host': 'requirements.txt',
                 'image': os.path.join('/tmp', 'requirements.txt'),
@@ -414,9 +414,12 @@ class WcEnvManager(object):
         """
         for tag in image_tags:
             messages = self._docker_client.images.push(image_repo, tag, stream=True, decode=True)
-            errors = '\n  '.join(message['error'] for message in messages if 'error' in message)
+            errors = []
+            for message in messages:
+                if 'error' in message:
+                    errors.append(message['error'])
             if errors:
-                raise WcEnvManagerError('Push {}:{} failed:\n  {}'.format(image_repo, tag, errors))
+                raise WcEnvManagerError('Push {}:{} failed:\n  {}'.format(image_repo, tag, '\n  '.join(errors)))
 
     def pull_image(self, image_repo, image_tags):
         """ Pull Docker image for WC modeling environment
