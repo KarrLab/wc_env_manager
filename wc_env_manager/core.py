@@ -139,7 +139,7 @@ class WcEnvManager(object):
 
     def get_required_python_packages(self):
         """ Get Python packages required for the WC models and WC modeling
-            tools (`config['image']['python_packages'])
+            tools (`config['image']['python_packages']`)
 
         Returns:
             :obj:`list` of :obj:`str`: list of Python requirements in 

@@ -26,6 +26,8 @@ Contents
 
    installation.rst
    overview.rst
-   tutorial.rst
+   tutorial_users.rst
+   tutorial_developers.rst
+   tutorial_admins.rst
    API documentation <source/modules.rst>
    about.rst
