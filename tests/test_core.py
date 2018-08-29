@@ -27,6 +27,7 @@ import whichcraft
 import yaml
 
 
+@unittest.skipIf(whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
 class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
     def setUp(self):
         self.remove_images()
@@ -242,6 +243,7 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
         self.assertRegex(version, r'^\d+\.\d+\.\d+[a-z0A-Z-9]*$')
 
 
+@unittest.skipIf(whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
 class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
     def setUp(self):
         self.mgr = wc_env_manager.core.WcEnvManager()
@@ -342,6 +344,7 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
         mgr.remove_image(mgr.config['image']['repo'], mgr.config['image']['tags'])
 
 
+@unittest.skipIf(whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
 class WcEnvManagerDockerHubTestCase(unittest.TestCase):
     def setUp(self):
         mgr = self.mgr = wc_env_manager.core.WcEnvManager()
@@ -375,6 +378,7 @@ class WcEnvManagerDockerHubTestCase(unittest.TestCase):
         self.assertIsInstance(image, docker.models.images.Image)
 
 
+@unittest.skipIf(whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
 class WcEnvManagerContainerTestCase(unittest.TestCase):
     def setUp(self):
         mgr = self.mgr = wc_env_manager.core.WcEnvManager()
@@ -610,7 +614,7 @@ class WcEnvHostTestCase(unittest.TestCase):
             self.assertEqual(capture_output.get_text(), 'here')
 
 
-#@unittest.skip('Long test')
+@unittest.skipIf(whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
 class FullWcEnvTestCase(unittest.TestCase):
     def setUp(self):
         self.mgr = mgr = wc_env_manager.core.WcEnvManager()

@@ -10,8 +10,10 @@ from wc_env_manager import __main__
 import capturer
 import mock
 import unittest
+import whichcraft
 
 
+@unittest.skipIf(whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
 class MainTestCase(unittest.TestCase):
 
     def test_cli(self):
