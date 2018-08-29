@@ -46,6 +46,8 @@ class BaseImageController(cement.Controller):
     def build(self):
         mgr = wc_env_manager.core.WcEnvManager({'verbose': VERBOSE})
         mgr.build_base_image()
+        print('Built base image {}:{{{}}}'.format(
+            mgr.config['base_image']['repo'], ', '.join(mgr.config['base_image']['tags'])))
 
     @cement.ex(help='Push base image')
     def push(self):
@@ -90,6 +92,8 @@ class ImageController(cement.Controller):
     def build(self):
         mgr = wc_env_manager.core.WcEnvManager({'verbose': VERBOSE})
         mgr.build_image()
+        print('Built image {}:{{{}}}'.format(
+            mgr.config['image']['repo'], ', '.join(mgr.config['image']['tags'])))
 
     @cement.ex(help='Push image')
     def push(self):
@@ -136,6 +140,7 @@ class ContainerController(cement.Controller):
         mgr = wc_env_manager.core.WcEnvManager({'verbose': VERBOSE})
         mgr.build_container()
         mgr.setup_container()
+        print('Built container {}'.format(mgr._container.name))
 
     @cement.ex(help='Remove container')
     def remove(self):
@@ -165,6 +170,12 @@ class AllController(cement.Controller):
         mgr.build_base_image()
         mgr.build_image()
         mgr.build_container()
+
+        print('Built base image {}:{{{}}}'.format(
+            mgr.config['base_image']['repo'], ', '.join(mgr.config['base_image']['tags'])))
+        print('Built image {}:{{{}}}'.format(
+            mgr.config['image']['repo'], ', '.join(mgr.config['image']['tags'])))
+        print('Built container {}'.format(mgr._container.name))
 
     @cement.ex(help='Push base image and image')
     def push(self):
