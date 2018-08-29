@@ -571,33 +571,39 @@ class WcEnvHostTestCase(unittest.TestCase):
             self.assertEqual(capture_output.get_text(), 'here')
 
 
-#@unittest.skip('Long test')
+@unittest.skip('Long test')
 class FullWcEnvTestCase(unittest.TestCase):
     def setUp(self):
         self.mgr = mgr = wc_env_manager.core.WcEnvManager()
 
         config = mgr.config
-        config['image']['tags'] = ['test']
+        # config['image']['tags'] = ['test']
 
     def tearDown(self):
         mgr = self.mgr
         config = mgr.config
         mgr.remove_containers(force=True)
-        mgr.remove_image(config['image']['repo'], config['image']['tags'])
+        if 'test' in config['image']['tags']:
+            mgr.remove_image(config['image']['repo'], config['image']['tags'])
 
     def test(self):
         mgr = self.mgr
         config = mgr.config
         config['verbose'] = True
 
-        mgr.build_base_image()
-        mgr.pull_image(config['base_image']['repo'], config['base_image']['tags'])
-
         mgr.login_docker_hub()
+
+        # build base image
+        mgr.pull_image(config['base_image']['repo'], config['base_image']['tags'])
+        mgr.build_base_image()
         mgr.push_image(config['base_image']['repo'], config['base_image']['tags'])
 
+        # build image
+        mgr.pull_image(config['image']['repo'], config['image']['tags'])
         mgr.build_image()
+        mgr.push_image(config['image']['repo'], config['image']['tags'])
 
+        # build container
         mgr.create_container()
         mgr.setup_container()
 

@@ -30,26 +30,19 @@
 """
 
 from datetime import datetime
-from pathlib import Path
 import copy
 import configobj
-import configparser
 import dateutil.parser
 import docker
 import enum
-import fnmatch
 import git
-import io
 import jinja2
-import json
 import os
 import pkg_utils
-import random
 import re
 import requests
 import requirements
 import shutil
-import string
 import subprocess
 import tempfile
 import wc_env_manager.config.core
@@ -130,8 +123,6 @@ class WcEnvManager(object):
 
         dockerfile_path = os.path.join(temp_dir_name, 'Dockerfile')
         template.stream(**config['build_args']).dump(dockerfile_path)
-
-        print(temp_dir_name)
 
         # build image
         image = self._build_image(config['repo'], config['tags'], dockerfile_path,
@@ -245,19 +236,17 @@ class WcEnvManager(object):
             path['host'] = os.path.abspath(path['host'])[1:]
 
         if self.config['image']['python_packages']:
-            while True:
-                requirements_file_name = 'requirements.{}.txt'.format(
-                    ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(16)))
-                if not os.path.isfile(os.path.join(temp_dir_name, requirements_file_name)):
-                    break
+            host_requirements_file_name = os.path.join(temp_dir_name, 'requirements.txt')
+            if os.path.isfile(host_requirements_file_name):
+                raise WcEnvManagerError('Config files cannot have name `requirements.txt`')
             paths_to_copy.append({
-                'host': requirements_file_name,
-                'image': os.path.join('/tmp', requirements_file_name),
+                'host': 'requirements.txt',
+                'image': os.path.join('/tmp', 'requirements.txt'),
             })
-            with open(os.path.join(temp_dir_name, requirements_file_name), 'w') as file:
+            with open(host_requirements_file_name, 'w') as file:
                 file.write(self.config['image']['python_packages'])
 
-            image_requirements_file_name = os.path.join('/tmp', requirements_file_name)
+            image_requirements_file_name = os.path.join('/tmp', 'requirements.txt')
         else:
             image_requirements_file_name = None
 
@@ -345,10 +334,10 @@ class WcEnvManager(object):
 
         # tag image
         for tag in image_tags:
-            image.tag(image_repo, tag=tag)
+            assert(image.tag(image_repo, tag=tag))
 
         # re-get image because tags don't automatically update on image object
-        image = self._docker_client.images.get('{}:{}'.format(image_repo, image_tags[0]))
+        image.reload()
 
         # print log
         if self.config['verbose']:
@@ -424,7 +413,10 @@ class WcEnvManager(object):
             image_tags (:obj:`list` of :obj:`str`): list of tags
         """
         for tag in image_tags:
-            self._docker_client.images.push(image_repo, tag)
+            messages = self._docker_client.images.push(image_repo, tag, stream=True, decode=True)
+            errors = '\n  '.join(message['error'] for message in messages if 'error' in message)
+            if errors:
+                raise WcEnvManagerError('Push {}:{} failed:\n  {}'.format(image_repo, tag, errors))
 
     def pull_image(self, image_repo, image_tags):
         """ Pull Docker image for WC modeling environment

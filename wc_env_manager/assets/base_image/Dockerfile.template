@@ -99,6 +99,7 @@ RUN cd /tmp \
     && rm -r /tmp/openbabel-openbabel-${openbabel_version_dash}
 
 # install cplex
+{% if cplex_license -%}
 ARG cplex_version=12.8.0
 ARG cplex_version_major_minor_nodot=128
 COPY cplex_studio${cplex_version_major_minor_nodot}.linux-x86-64.bin /tmp/
@@ -111,8 +112,10 @@ RUN cd /tmp \
     \
     && rm /tmp/cplex_studio${cplex_version_major_minor_nodot}.linux-x86-64.bin \
     && rm /tmp/cplex.installer.properties
+{%- endif %}
 
 # install gurobi
+{% if gurobi_license -%}
 ARG gurobi_version=8.0.1
 ARG gurobi_license={{ gurobi_license }}
 COPY install_gurobi.exp /tmp/
@@ -131,48 +134,53 @@ ARG gurobi_version_nodot=800
 ENV GUROBI_HOME=/opt/gurobi${gurobi_version_nodot}/linux64
 ENV PATH="${PATH}:${GUROBI_HOME}/bin"
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${GUROBI_HOME}/lib"
+{%- endif %}
 
 # install mosek
+{% if mosek_license -%}
 ARG mosek_version=8.1.0.58
-COPY mosek.lic /tmp/
+COPY {{ mosek_license }} /tmp/
 RUN cd /tmp \
     && mosek_version_major=$(echo $mosek_version | cut -d "." -f 1,1) \
     && wget https://d2i6rjz61faulo.cloudfront.net/stable/${mosek_version}/mosektoolslinux64x86.tar.bz2 \
     && tar -xvvf mosektoolslinux64x86.tar.bz2 \
     && mv /tmp/mosek /opt/ \
     && mkdir ${HOME}/mosek \
-    && mv /tmp/mosek.lic ${HOME}/mosek/ \
+    && mv /tmp/{{ mosek_license }} ${HOME}/mosek/ \
     && cd /opt/mosek/8/tools/platform/linux64x86/python/3/ \
     && python${python_version_major_minor} setup.py install \
     && rm /tmp/mosektoolslinux64x86.tar.bz2 \
-    && rm ${HOME}/mosek/mosek.lic
+    && rm ${HOME}/mosek/{{ mosek_license }}
 ENV PATH="${PATH}:/opt/mosek/${mosek_version_major}/tools/platform/linux64x86/bin"
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/opt/mosek/${mosek_version_major}/tools/platform/linux64x86/bin"
+{%- endif %}
 
 # install xpress
+{% if xpress_license -%}
 ARG xpress_version=8.5.3
 ARG xpress_license_server={{ xpress_license_server }}
-COPY xpauth.xpr /tmp/
+COPY {{ xpress_license }} /tmp/
 COPY xpress.egg-info /tmp/
 RUN cd /tmp \
     && wget https://clientarea.xpress.fico.com/downloads/${xpress_version}/xp${xpress_version}_linux_x86_64_setup.tar \
     && mkdir xp${xpress_version}_linux_x86_64_setup \
     && tar -xvvf xp${xpress_version}_linux_x86_64_setup.tar -C xp${xpress_version}_linux_x86_64_setup \
     && cd /tmp/xp${xpress_version}_linux_x86_64_setup \
-    && ./install.sh -l floating-client -a /tmp/xpauth.xpr -d /opt/xpressmp -k yes -s ${xpress_license_server} \
+    && ./install.sh -l floating-client -a /tmp/{{ xpress_license }} -d /opt/xpressmp -k yes -s ${xpress_license_server} \
     && echo "/opt/xpressmp/lib" | tee /usr/local/lib/python${python_version_major_minor}/site-packages/xpress.pth \
     && cp /tmp/xpress.egg-info /usr/local/lib/python${python_version_major_minor}/site-packages/xpress-${xpress_version}.egg-info \
     && cd /tmp \
     && rm /tmp/xp${xpress_version}_linux_x86_64_setup.tar \
     && rm -r /tmp/xp${xpress_version}_linux_x86_64_setup \
-    && rm /tmp/xpauth.xpr \
+    && rm /tmp/{{ xpress_license }} \
     && rm /tmp/xpress.egg-info \
-    && rm /opt/xpressmp/bin/xpauth.xpr
+    && rm /opt/xpressmp/bin/{{ xpress_license }}
 ENV XPRESSDIR=/opt/xpressmp
 ENV PATH=$PATH:$XPRESSDIR/bin
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/lib/x86_64-linux-gnu:$XPRESSDIR/lib
 ENV CLASSPATH=$CLASSPATH:$XPRESSDIR/lib/xprs.jar:$XPRESSDIR/lib/xprb.jar:$XPRESSDIR/lib/xprm.jar
 ENV XPRESS=$XPRESSDIR/bin
+{%- endif %}
 
 # COIN-OR: CBC (latest version compatible with CyLP)
 ARG cbc_version=2.8.5
@@ -233,11 +241,13 @@ ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/coin-or/cbc/lib
 # ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/coin-or/qpoases/lib
 
 # MINOS
+{% if minos_license -%}
 ARG minos_version=5.6
 RUN cd /tmp \
     && apt-get install -y \
         csh \
         gfortran \
+    && pip${python_version_major_minor} install numpy \
     && wget http://stanford.edu/~saunders/tmp/quadLP.zip \
     && unzip quadLP.zip \
     \
@@ -260,6 +270,7 @@ RUN cd /tmp \
     && cd /tmp \
     && git clone https://github.com/SBRG/solvemepy.git \
     && cd solvemepy \
+    && git checkout 72db1bac4ee8a479283f54eaf1644119967d4ac0 \
     && cp /tmp/quadLP/minos56/lib/libminos.a ./ \
     && cp /tmp/quadLP/qminos56/lib/libquadminos.a ./ \
     && pip${python_version_major_minor} install . \
@@ -268,8 +279,10 @@ RUN cd /tmp \
     && rm -r quadLP  \
     && rm quadLP.zip \
     && rm -r solvemepy
+{%- endif %}
 
 # SoPlex
+{% if soplex_license -%}
 ARG soplex_version=3.1.1
 RUN cd /tmp \
     && wget http://soplex.zib.de/download/release/soplex-${soplex_version}.tgz \
@@ -294,6 +307,7 @@ RUN cd /tmp \
     && pip${python_version_major_minor} install . \
     && cd /tmp \
     && rm -r soplex_cython
+{%- endif %}
 
 # kallisto
 ARG kallisto_version=0.44.0

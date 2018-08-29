@@ -11,9 +11,9 @@ RUN touch ~/.ssh/known_hosts \
     && ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 # Install Python packages from PyPI and GitHub
-{% if requirements_file_name %}
+{% if requirements_file_name -%}
 RUN pip{{ python_version }} install --process-dependency-links -r {{ requirements_file_name }}
-{% endif %}
+{%- endif %}
 
 # Set default command
 CMD bash
