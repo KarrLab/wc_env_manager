@@ -38,11 +38,12 @@ import dateutil.parser
 import docker
 import enum
 import fnmatch
+import git
 import io
 import jinja2
 import json
 import os
-import pkg_resources
+import pkg_utils
 import random
 import re
 import requests
@@ -72,8 +73,6 @@ class WcEnvManager(object):
         _container (:obj:`docker.models.containers.Container`): current Docker container
     """
 
-    # todo: merge with karr_lab_docker_images
-    #       compile_requirements
     # todo: CLI
     # todo: update docs
     # todo: reduce privileges in Docker image by creating separate user; update docs
@@ -105,12 +104,93 @@ class WcEnvManager(object):
     def build_base_image(self):
         """ Build base Docker image for WC modeling environment
 
+        Before executing this method, you must download CPLEX and obtain licenses for 
+        Gurobi, MINOS, Mosek, and XPRESS. See the `documentation <building_images>` for more information.
+
         Returns:
             :obj:`docker.models.images.Image`: Docker image
         """
         config = self.config['base_image']
-        return self._build_image(config['repo'], config['tags'], config['dockerfile_path'],
-                                 config['build_args'], config['context_path'])
+
+        # create temporary directory for build context
+        temp_dir_name = tempfile.mkdtemp()
+        shutil.rmtree(temp_dir_name)
+        shutil.copytree(config['context_path'], temp_dir_name)
+
+        # save list of Python package requirements to context path
+        requirements = self.get_required_python_packages()
+        with open(os.path.join(temp_dir_name, 'requirements.txt'), 'w') as file:
+            file.write('\n'.join(requirements))
+
+        # render Dockerfile
+        template_dockerfile_name = config['dockerfile_template_path']
+        with open(template_dockerfile_name) as file:
+            template = jinja2.Template(file.read())
+
+        dockerfile_path = os.path.join(temp_dir_name, 'Dockerfile')
+        template.stream(**config['build_args']).dump(dockerfile_path)
+
+        # build image
+        image = self._build_image(config['repo'], config['tags'], dockerfile_path,
+                                  config['build_args'], temp_dir_name,
+                                  pull_base_image=True)
+
+        # cleanup temporary directory
+        shutil.rmtree(temp_dir_name)
+
+        # return image
+        return image
+
+    def get_required_python_packages(self):
+        """ Get Python packages required for the WC models and WC modeling
+            tools (`config['image']['python_packages'])
+
+        Returns:
+            :obj:`list` of :obj:`str`: list of Python requirements in 
+                requirements.txt format
+        """
+        # make temporary directory
+        temp_dir_name = tempfile.mkdtemp()
+
+        # save requirements for image to temp file and parse requirements
+        _, dependency_links = pkg_utils.parse_requirement_lines(
+            self.config['image']['python_packages'].split('\n'),
+            include_extras=False, include_specs=False, include_markers=False)
+
+        # collate requirements for packages
+        requirements = set()
+        for dependency_link in dependency_links:
+            if dependency_link.startswith('git+https://'):
+                url, _, egg = dependency_link[4:].partition('#')
+                _, _, package_name = egg.partition('=')
+                package_name, _, _ = package_name.partition('-')
+
+                dir_name = os.path.join(temp_dir_name, package_name)
+                git.Repo.clone_from(url, dir_name)
+
+                def strip_github_packages(file_name):
+                    if os.path.isfile(file_name):
+                        with open(file_name, 'r') as file:
+                            lines = file.readlines()
+                        lines = filter(lambda line: 'git+https://' not in line, lines)
+                        with open(file_name, 'w') as file:
+                            file.writelines(lines)
+
+                strip_github_packages(os.path.join(dir_name, 'requirements.txt'))
+                strip_github_packages(os.path.join(dir_name, 'requirements.optional.txt'))
+                strip_github_packages(os.path.join(dir_name, 'tests', 'requirements.txt'))
+                strip_github_packages(os.path.join(dir_name, 'docs', 'requirements.txt'))
+
+                install_requires, extras_require, _, _ = \
+                    pkg_utils.get_dependencies(dir_name)
+                requirements.update(set(install_requires))
+                requirements.update(set(extras_require['all']))
+
+        # remove temporary directory
+        shutil.rmtree(temp_dir_name)
+
+        # return requirements
+        return sorted(list(requirements))
 
     def build_image(self):
         """ Build Docker image for WC modeling environment
@@ -167,8 +247,7 @@ class WcEnvManager(object):
         }
 
         # render Dockerfile
-        template_dockerfile_name = pkg_resources.resource_filename('wc_env_manager',
-                                                                   os.path.join('assets', 'Dockerfile.template'))
+        template_dockerfile_name = self.config['image']['dockerfile_template_path']
         with open(template_dockerfile_name) as file:
             template = jinja2.Template(file.read())
 
@@ -177,14 +256,18 @@ class WcEnvManager(object):
 
         # build image
         config = self.config['image']
-        self._build_image(config['repo'], config['tags'],
-                          dockerfile_name, {}, temp_dir_name)
+        image = self._build_image(config['repo'], config['tags'],
+                                  dockerfile_name, {}, temp_dir_name)
 
         # cleanup temporary directory
         shutil.rmtree(temp_dir_name)
 
+        # return image
+        return image
+
     def _build_image(self, image_repo, image_tags,
-                     dockerfile_path, build_args, context_path):
+                     dockerfile_path, build_args, context_path,
+                     pull_base_image=False):
         """ Build Docker image
 
         Args:
@@ -193,6 +276,8 @@ class WcEnvManager(object):
             dockerfile_path (:obj:`str`): path to Dockerfile            
             build_args (:obj:`dict`): build arguments for Dockerfile
             context_path (:obj:`str`): path to context for Dockerfile
+            pull_base_image (:obj:`bool`, optional): if :obj:`True`, pull the 
+                latest version of the base image
 
         Returns:
             :obj:`docker.models.images.Image`: Docker image
@@ -218,7 +303,7 @@ class WcEnvManager(object):
             image, log = self._docker_client.images.build(
                 path=context_path,
                 dockerfile=os.path.basename(dockerfile_path),
-                pull=True,
+                pull=pull_base_image,
                 buildargs=build_args,
                 rm=True,
             )

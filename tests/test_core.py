@@ -32,8 +32,8 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
         self.remove_images()
 
         docker_image_context_path = tempfile.mkdtemp()
-        dockerfile_path = os.path.join(docker_image_context_path, 'Dockerfile')
-        with open(dockerfile_path, 'w') as file:
+        dockerfile_template_path = os.path.join(docker_image_context_path, 'Dockerfile')
+        with open(dockerfile_template_path, 'w') as file:
             file.write('FROM ubuntu\n')
             file.write('CMD bash\n')
 
@@ -41,10 +41,14 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
             'base_image': {
                 'repo': 'karrlab/test',
                 'tags': ['0.0.1', 'latest'],
-                'dockerfile_path': dockerfile_path,
+                'dockerfile_template_path': dockerfile_template_path,
                 'context_path': docker_image_context_path,
             },
         })
+        self.mgr.config['image']['python_packages'] = '''
+        git+https://github.com/KarrLab/wc_lang.git#egg=wc_lang-0.0.1[all]
+        git+https://github.com/KarrLab/wc_utils.git#egg=wc_utils-0.0.1[all]
+        '''
 
     def tearDown(self):
         self.remove_images()
@@ -61,9 +65,19 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
         except docker.errors.ImageNotFound:
             pass
 
+    def test_get_required_python_packages(self):
+        mgr = self.mgr
+        requirements = mgr.get_required_python_packages()
+        self.assertIn('numpy', requirements)
+        self.assertNotIn('log', requirements)
+
     def test_build_base_image(self):
         mgr = self.mgr
         config = mgr.config
+        config['image']['python_packages'] = '''
+        git+https://github.com/KarrLab/wc_lang.git#egg=wc_lang-0.0.1[all]
+        git+https://github.com/KarrLab/wc_utils.git#egg=wc_utils-0.0.1[all]
+        '''
 
         image = mgr.build_base_image()
         self.assertIsInstance(image, docker.models.images.Image)
@@ -91,12 +105,20 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
 
         mgr.config['base_image']['context_path'] += '.null'
         with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, ' must be a directory'):
-            mgr.build_base_image()
+            mgr._build_image(mgr.config['base_image']['repo'],
+                             mgr.config['base_image']['tags'],
+                             mgr.config['base_image']['dockerfile_template_path'],
+                             mgr.config['base_image']['build_args'],
+                             mgr.config['base_image']['context_path'])
 
         mgr.config['base_image']['context_path'] = context_path
-        mgr.config['base_image']['dockerfile_path'] = '/Dockerfile'
+        mgr.config['base_image']['dockerfile_template_path'] = '/Dockerfile'
         with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, ' must be inside '):
-            mgr.build_base_image()
+            mgr._build_image(mgr.config['base_image']['repo'],
+                             mgr.config['base_image']['tags'],
+                             mgr.config['base_image']['dockerfile_template_path'],
+                             mgr.config['base_image']['build_args'],
+                             mgr.config['base_image']['context_path'])
 
     @unittest.skipUnless(whichcraft.which('systemctl'), 'Unable to stop Docker service')
     def test_build_base_image_connection_error(self):
@@ -116,7 +138,7 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
         mgr = self.mgr
 
         # introduce typo into Dockerfile
-        with open(mgr.config['base_image']['dockerfile_path'], 'w') as file:
+        with open(mgr.config['base_image']['dockerfile_template_path'], 'w') as file:
             file.write('FROM2 ubuntu\n')
             file.write('CMD bash\n')
 
@@ -128,7 +150,7 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
         mgr = self.mgr
 
         # introduce typo into Dockerfile
-        with open(mgr.config['base_image']['dockerfile_path'], 'w') as file:
+        with open(mgr.config['base_image']['dockerfile_template_path'], 'w') as file:
             file.write('FROM ubuntu\n')
             file.write('RUN exit 1')
             file.write('CMD bash\n')
@@ -549,6 +571,7 @@ class WcEnvHostTestCase(unittest.TestCase):
             self.assertEqual(capture_output.get_text(), 'here')
 
 
+@unittest.skip('Long test')
 class FullWcEnvTestCase(unittest.TestCase):
     def setUp(self):
         self.mgr = mgr = wc_env_manager.core.WcEnvManager()
@@ -567,7 +590,7 @@ class FullWcEnvTestCase(unittest.TestCase):
         config = mgr.config
         config['verbose'] = True
 
-        # mgr.build_base_image()
+        mgr.build_base_image()
         mgr.pull_image(config['base_image']['repo'], config['base_image']['tags'])
 
         mgr.login_docker_hub()

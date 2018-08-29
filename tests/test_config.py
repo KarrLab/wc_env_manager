@@ -37,10 +37,11 @@ class Test(unittest.TestCase):
         extra = {
             'wc_env_manager': {
                 'base_image': {
-                    'dockerfile_path': '${HOME}/Dockerfile',
+                    'dockerfile_template_path': '${HOME}/Dockerfile',
                 },
             },
         }
         config = wc_env_manager.config.core.get_config(extra=extra)
-        self.assertEqual(config['wc_env_manager']['base_image']['dockerfile_path'],
-                         '{}/Dockerfile'.format(pathlib.Path.home()))
+        self.assertEqual(
+            config['wc_env_manager']['base_image']['dockerfile_template_path'],
+            '{}/Dockerfile'.format(pathlib.Path.home()))

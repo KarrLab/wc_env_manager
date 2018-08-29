@@ -50,7 +50,9 @@ tests/fixtures/secret/
 Thumbs.db
 
 # credentials in tokens
-tokens/
+wc_env_manager/assets/base_image/cplex_studio128.linux-x86-64.bin
+wc_env_manager/assets/base_image/mosek.lic
+wc_env_manager/assets/base_image/xpauth.xpr
 
 # configuration file
 wc_env_manager.cfg

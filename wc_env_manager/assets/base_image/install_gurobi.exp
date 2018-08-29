@@ -1,0 +1,14 @@
+#!/usr/bin/expect -f
+
+set version_gurobi_nodot [lindex $argv 0]
+set license_gurobi [lindex $argv 1]
+
+spawn /opt/gurobi${version_gurobi_nodot}/linux64/bin/grbgetkey ${license_gurobi}
+
+expect -exact "on this machine? \[Y/n\] " 
+send -- "Y\r"
+
+expect -exact "\[hit Enter to store it in /opt/gurobi\]: "
+send -- "/opt/gurobi\r"
+
+expect eof
