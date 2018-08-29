@@ -1,7 +1,7 @@
-""" Tests of wc_env_manager command line interface (wc_env_manager.__main__)
+""" Tests of wc_env_manager command line interface
 
-:Author: Arthur Goldberg <Arthur.Goldberg@mssm.edu>
-:Date: 2018-04-04
+:Author: Jonathan Karr <jonrkarr@gmail.com>
+:Date: 2018-08-29
 :Copyright: 2018, Karr Lab
 :License: MIT
 """
@@ -12,7 +12,6 @@ import mock
 import unittest
 
 
-@unittest.skip('Not yet implemented')
 class MainTestCase(unittest.TestCase):
 
     def test_cli(self):
@@ -25,32 +24,57 @@ class MainTestCase(unittest.TestCase):
         with __main__.App(argv=['--help']) as app:
             app.run()
 
-    def test_command_1(self):
-        with capturer.CaptureOutput(merged=False, relay=False) as captured:
-            with __main__.App(argv=['command-1']) as app:
-                # run app
-                app.run()
+    def test_base_image(self):
+        with __main__.App(argv=['base-image', 'pull']) as app:
+            app.run()
 
-                # test that the CLI produced the correct output
-                self.assertEqual(captured.stdout.get_text(), '...')
-                self.assertEqual(captured.stderr.get_text(), '...')
+        with __main__.App(argv=['base-image', 'build']) as app:
+            app.run()
 
-    def test_command_3(self):
-        with capturer.CaptureOutput(merged=False, relay=False) as captured:
-            with __main__.App(argv=['command-3',
-                                    'arg-1 value',
-                                    'arg-2 value',
-                                    '--opt-arg-3', 'opt-arg-3 value',
-                                    '--opt-arg-4', 'opt-arg-4 value']) as app:
-                # run app
-                app.run()
+        with __main__.App(argv=['base-image', 'push']) as app:
+            app.run()
 
-                # test that the arguments to the CLI were correctly parsed
-                self.assertTrue(app.pargs.arg_1)
-                self.assertTrue(app.pargs.arg_2)
-                self.assertTrue(app.pargs.opt_arg_3)
-                self.assertTrue(app.pargs.opt_arg_4)
+        with __main__.App(argv=['base-image', 'version']) as app:
+            app.run()
 
-                # test that the CLI produced the correct output
-                self.assertEqual(captured.stdout.get_text(), '...')
-                self.assertEqual(captured.stderr.get_text(), '...')
+        with __main__.App(argv=['base-image', 'remove']) as app:
+            app.run()
+
+    def test_image(self):
+        with __main__.App(argv=['image', 'pull']) as app:
+            app.run()
+
+        with __main__.App(argv=['image', 'build']) as app:
+            app.run()
+
+        with __main__.App(argv=['image', 'push']) as app:
+            app.run()
+
+        with __main__.App(argv=['image', 'version']) as app:
+            app.run()
+
+        with __main__.App(argv=['image', 'remove']) as app:
+            app.run()
+
+    def test_container(self):
+        with __main__.App(argv=['image', 'pull']) as app:
+            app.run()
+
+        with __main__.App(argv=['container', 'build']) as app:
+            app.run()
+
+        with __main__.App(argv=['container', 'remove']) as app:
+            app.run()
+
+    def test_all(self):
+        with __main__.App(argv=['pull']) as app:
+            app.run()
+
+        with __main__.App(argv=['build']) as app:
+            app.run()
+
+        with __main__.App(argv=['push']) as app:
+            app.run()
+
+        with __main__.App(argv=['remove']) as app:
+            app.run()

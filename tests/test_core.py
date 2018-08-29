@@ -264,12 +264,14 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
             pass
 
         mgr.config['image']['config_path'] = temp_dir_name
+        with open(os.path.join(temp_dir_name, 'pkg.cfg'), 'w') as file:
+            pass
         paths = mgr.get_config_file_paths_to_copy_to_image()
 
         self.assertEqual(3, len(paths))
         self.assertIn({
-            'host': temp_dir_name,
-            'image': '/root/.wc',
+            'host': os.path.join(temp_dir_name, 'pkg.cfg'),
+            'image': '/root/.wc/pkg.cfg',
         }, paths)
         self.assertIn({
             'host': os.path.join(temp_dir_name, 'third_party', '.gitconfig'),
@@ -315,7 +317,7 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
             self.assertRegex(text, 'Successfully installed .*?wc-lang-')
             self.assertRegex(text, 'Successfully installed .*?wc-utils-')
             self.assertRegex(text, 'Successfully built')
-        mgr.create_container()
+        mgr.build_container()
 
         mgr.copy_path_from_container('/tmp/a',
                                      os.path.join(temp_dir_name, 'a2'))
@@ -381,7 +383,7 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
         mgr.remove_image(mgr.config['image']['repo'], mgr.config['image']['tags'])
         mgr.remove_containers(force=True)
 
-    def test_create_container(self):
+    def test_build_container(self):
         mgr = self.mgr
 
         temp_dir_name_a = tempfile.mkdtemp()
@@ -397,7 +399,7 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
                 'mode': 'rw',
             },
         }
-        container = mgr.create_container()
+        container = mgr.build_container()
         self.assertIsInstance(container, docker.models.containers.Container)
 
         mgr.run_process_in_container('bash -c "echo abc >> /root/host/mount-a/test_a"')
@@ -434,7 +436,7 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
         /root/host/Documents/wc_utils
         '''
 
-        mgr.create_container()
+        mgr.build_container()
         with capturer.CaptureOutput(relay=False) as capture_output:
             mgr.setup_container()
             text = capture_output.get_text()
@@ -446,7 +448,7 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
     def test_setup_container_with_python_packages(self):
         mgr = self.mgr
         mgr.config['verbose'] = True
-        container = mgr.create_container()
+        container = mgr.build_container()
 
         # not upgrade
         mgr.config['container']['python_packages'] = 'pip'
@@ -464,14 +466,14 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
         mgr = self.mgr
         mgr.config['image']['python_packages'] = ''
 
-        container = mgr.create_container()
+        container = mgr.build_container()
         mgr.config['container']['python_packages'] = 'undefined_package'
         with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'No matching distribution'):
             mgr.setup_container()
 
     def test_copy_path_to_from_docker_container(self):
         mgr = self.mgr
-        mgr.create_container()
+        mgr.build_container()
 
         temp_dir_name = tempfile.mkdtemp()
         temp_file_name = os.path.join(temp_dir_name, 'test.txt')
@@ -496,7 +498,7 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
     def test_set_container(self):
         mgr = self.mgr
-        container = mgr.create_container()
+        container = mgr.build_container()
         self.assertEqual(mgr._container, container)
         self.assertEqual(mgr.get_latest_container(), container)
 
@@ -510,18 +512,18 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
     def test_get_latest_container(self):
         mgr = self.mgr
-        container = mgr.create_container()
+        container = mgr.build_container()
         self.assertEqual(mgr.get_latest_container(), container)
 
     def test_get_containers(self):
         mgr = self.mgr
-        container = mgr.create_container()
+        container = mgr.build_container()
         containers = mgr.get_containers()
         self.assertEqual(containers, [container])
 
     def test_run_process_in_container(self):
         mgr = self.mgr
-        mgr.create_container()
+        mgr.build_container()
 
         # not verbose
         mgr.config['verbose'] = False
@@ -552,7 +554,7 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
     def test_get_container_stats(self):
         mgr = self.mgr
-        mgr.create_container()
+        mgr.build_container()
         stats = mgr.get_container_stats()
         self.assertIsInstance(stats, dict)
         self.assertIn('cpu_stats', stats)
@@ -560,14 +562,14 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
     def test_stop_container(self):
         mgr = self.mgr
-        container = mgr.create_container()
+        container = mgr.build_container()
         self.assertEqual(container.status, 'created')
         mgr.stop_container()
         self.assertEqual(container.status, 'created')
 
     def test_remove_container(self):
         mgr = self.mgr
-        container = mgr.create_container()
+        container = mgr.build_container()
         self.assertNotEqual(mgr._container, None)
         mgr.remove_container(force=True)
         self.assertEqual(mgr._container, None)
@@ -575,7 +577,7 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
     def test_remove_containers(self):
         mgr = self.mgr
-        container = mgr.create_container()
+        container = mgr.build_container()
         self.assertNotEqual(mgr._container, None)
         mgr.remove_containers(force=True)
         self.assertEqual(mgr._container, None)
@@ -600,7 +602,7 @@ class WcEnvHostTestCase(unittest.TestCase):
             self.assertEqual(capture_output.get_text(), 'here')
 
 
-@unittest.skip('Long test')
+#@unittest.skip('Long test')
 class FullWcEnvTestCase(unittest.TestCase):
     def setUp(self):
         self.mgr = mgr = wc_env_manager.core.WcEnvManager()
@@ -633,7 +635,7 @@ class FullWcEnvTestCase(unittest.TestCase):
         mgr.push_image(config['image']['repo'], config['image']['tags'])
 
         # build container
-        mgr.create_container()
+        mgr.build_container()
         mgr.setup_container()
 
         with capturer.CaptureOutput(relay=True) as capture_output:

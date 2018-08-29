@@ -36,6 +36,7 @@ import dateutil.parser
 import docker
 import enum
 import git
+import glob
 import jinja2
 import os
 import pkg_utils
@@ -267,7 +268,7 @@ class WcEnvManager(object):
         template.stream(**context).dump(dockerfile_name)
 
         # build image
-        config = self.config['image']
+        config = self.config['image']        
         image = self._build_image(config['repo'], config['tags'],
                                   dockerfile_name, {}, temp_dir_name)
 
@@ -370,10 +371,11 @@ class WcEnvManager(object):
 
         if os.path.isdir(host_dirname):
             # copy config files from host to image
-            paths_to_copy_to_image.append({
-                'host': host_dirname,
-                'image': image_dirname,
-            })
+            for path in glob.glob(os.path.join(host_dirname, '*.cfg')):
+                paths_to_copy_to_image.append({
+                    'host': path,
+                    'image': os.path.join(image_dirname, os.path.basename(path)),
+                })
 
             # copy third party config files to image
             filename = os.path.join(host_dirname, 'third_party', 'paths.yml')
@@ -483,7 +485,7 @@ class WcEnvManager(object):
             if re.match(r'^\d+\.\d+\.\d+[a-zA-Z0-9]*$', version):
                 return version
 
-    def create_container(self, tty=True):
+    def build_container(self, tty=True):
         """ Create Docker container for WC modeling environmet
 
         Args:

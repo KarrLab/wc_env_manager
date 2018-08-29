@@ -6,7 +6,8 @@ COPY {{ path['host'] }} {{ path['image'] }}
 {% endfor %}
 
 # Install GitHub SSH key
-RUN touch ~/.ssh/known_hosts \
+RUN chmod 0600 ~/.ssh/id_rsa \
+    && touch ~/.ssh/known_hosts \
     && sed -i '/github.com ssh-rsa/d' ~/.ssh/known_hosts \
     && ssh-keyscan github.com >> ~/.ssh/known_hosts
 
