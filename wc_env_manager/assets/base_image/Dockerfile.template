@@ -114,7 +114,7 @@ RUN cd /tmp \
 
 # install gurobi
 ARG gurobi_version=8.0.1
-ARG gurobi_license=
+ARG gurobi_license={{ gurobi_license }}
 COPY install_gurobi.exp /tmp/
 RUN cd /tmp \
     && gurobi_version_major=$(echo $gurobi_version | cut -d "." -f 1,2) \
@@ -151,7 +151,7 @@ ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/opt/mosek/${mosek_version_major}/tools/
 
 # install xpress
 ARG xpress_version=8.5.3
-ARG xpress_license_server=
+ARG xpress_license_server={{ xpress_license_server }}
 COPY xpauth.xpr /tmp/
 COPY xpress.egg-info /tmp/
 RUN cd /tmp \

@@ -47,6 +47,7 @@ import pkg_utils
 import random
 import re
 import requests
+import requirements
 import shutil
 import string
 import subprocess
@@ -118,9 +119,9 @@ class WcEnvManager(object):
         shutil.copytree(config['context_path'], temp_dir_name)
 
         # save list of Python package requirements to context path
-        requirements = self.get_required_python_packages()
+        reqs = self.get_required_python_packages()
         with open(os.path.join(temp_dir_name, 'requirements.txt'), 'w') as file:
-            file.write('\n'.join(requirements))
+            file.write('\n'.join(reqs))
 
         # render Dockerfile
         template_dockerfile_name = config['dockerfile_template_path']
@@ -129,6 +130,8 @@ class WcEnvManager(object):
 
         dockerfile_path = os.path.join(temp_dir_name, 'Dockerfile')
         template.stream(**config['build_args']).dump(dockerfile_path)
+
+        print(temp_dir_name)
 
         # build image
         image = self._build_image(config['repo'], config['tags'], dockerfile_path,
@@ -158,7 +161,7 @@ class WcEnvManager(object):
             include_extras=False, include_specs=False, include_markers=False)
 
         # collate requirements for packages
-        requirements = set()
+        reqs = set()
         for dependency_link in dependency_links:
             if dependency_link.startswith('git+https://'):
                 url, _, egg = dependency_link[4:].partition('#')
@@ -183,14 +186,34 @@ class WcEnvManager(object):
 
                 install_requires, extras_require, _, _ = \
                     pkg_utils.get_dependencies(dir_name)
-                requirements.update(set(install_requires))
-                requirements.update(set(extras_require['all']))
+                reqs.update(set(install_requires))
+                reqs.update(set(extras_require['all']))
+
+        reqs_dict = {}
+        for req in reqs:
+            req_obj = requirements.parser.Requirement.parse_line(req)
+            if req_obj.extras:
+                raise WcEnvManagerError('Extras are not supported: {}'.format(req))
+            if ';' in req:
+                raise WcEnvManagerError('Specifiers are not supported: {}'.format(req))
+            if req_obj.name not in reqs_dict:
+                reqs_dict[req_obj.name] = set()
+            if req_obj.specs:
+                reqs_dict[req_obj.name].add(tuple(req_obj.specs))
+
+        reqs = []
+        for name, specs in reqs_dict.items():
+            if len(specs) > 1:
+                raise WcEnvManagerError('Conflicting specs for {}'.format(name))
+            if specs:
+                name += ' ' + ','.join(' '.join(spec) for spec in list(specs)[0])
+            reqs.append(name)
 
         # remove temporary directory
         shutil.rmtree(temp_dir_name)
 
         # return requirements
-        return sorted(list(requirements))
+        return sorted(reqs)
 
     def build_image(self):
         """ Build Docker image for WC modeling environment
