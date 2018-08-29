@@ -1,7 +1,7 @@
 """ Tools for managing computing environments for whole-cell modeling
 
 * Build the Docker image
-    
+
     * *wc_env*: image with WC models and WC modeling tools and their dependencies
     * *wc_env_dependencies*: base image with third party dependencies
 
@@ -61,7 +61,7 @@ class WcEnvManager(object):
     """ Manage computing environments (Docker containers) for whole-cell modeling
 
     Attributes:
-        config (:obj:`configobj.ConfigObj`): Dictionary of configuration options. See 
+        config (:obj:`configobj.ConfigObj`): Dictionary of configuration options. See
             `wc_env_manager/config/core.schema.cfg`.
         _docker_client (:obj:`docker.client.DockerClient`): client connected to the Docker daemon
         _base_image (:obj:`docker.models.images.Image`): current base Docker image
@@ -69,7 +69,6 @@ class WcEnvManager(object):
         _container (:obj:`docker.models.containers.Container`): current Docker container
     """
 
-    # todo: update docs
     # todo: test in CircleCI
     # todo: reduce privileges in Docker image by creating separate user; update docs
     # todo: manipulate Python path for packages without setup.py
@@ -77,7 +76,7 @@ class WcEnvManager(object):
     def __init__(self, config=None):
         """
         Args:
-            config (:obj:`dict`, optional): Dictionary of configuration options. See 
+            config (:obj:`dict`, optional): Dictionary of configuration options. See
             `wc_env_manager/config/core.schema.cfg`.
         """
 
@@ -100,7 +99,7 @@ class WcEnvManager(object):
     def build_base_image(self):
         """ Build base Docker image for WC modeling environment
 
-        Before executing this method, you must download CPLEX and obtain licenses for 
+        Before executing this method, you must download CPLEX and obtain licenses for
         Gurobi, MINOS, Mosek, and XPRESS. See the `documentation <building_images>` for more information.
 
         Returns:
@@ -142,7 +141,7 @@ class WcEnvManager(object):
             tools (`config['image']['python_packages']`)
 
         Returns:
-            :obj:`list` of :obj:`str`: list of Python requirements in 
+            :obj:`list` of :obj:`str`: list of Python requirements in
                 requirements.txt format
         """
         # make temporary directory
@@ -223,7 +222,7 @@ class WcEnvManager(object):
             :obj:`docker.models.images.Image`: Docker image
 
         Raises:
-            :obj:`WcEnvManagerError`: if a copied configuration file clashes with 
+            :obj:`WcEnvManagerError`: if a copied configuration file clashes with
         """
         # create temporary directory for build context
         temp_dir_name = tempfile.mkdtemp()
@@ -295,10 +294,10 @@ class WcEnvManager(object):
         Args:
             image_repo (:obj:`str`): image repository
             image_tags (:obj:`list` of :obj:`str`): list of tags
-            dockerfile_path (:obj:`str`): path to Dockerfile            
+            dockerfile_path (:obj:`str`): path to Dockerfile
             build_args (:obj:`dict`): build arguments for Dockerfile
             context_path (:obj:`str`): path to context for Dockerfile
-            pull_base_image (:obj:`bool`, optional): if :obj:`True`, pull the 
+            pull_base_image (:obj:`bool`, optional): if :obj:`True`, pull the
                 latest version of the base image
 
         Returns:
@@ -306,7 +305,7 @@ class WcEnvManager(object):
 
         Raises:
             :obj:`WcEnvManagerError`: if image context is not a directory, the image
-                context doesn't contain the Dockerfile file, or there is an error building 
+                context doesn't contain the Dockerfile file, or there is an error building
                 the image
         """
         # build image
@@ -368,10 +367,10 @@ class WcEnvManager(object):
         return image
 
     def get_config_file_paths_to_copy_to_image(self):
-        """ Get list of configuration file paths to copy from ~/.wc to Docker image 
+        """ Get list of configuration file paths to copy from ~/.wc to Docker image
 
         Returns:
-            :obj:`list` of :obj:`dict`: configuration file paths to copy from ~/.wc to Docker image 
+            :obj:`list` of :obj:`dict`: configuration file paths to copy from ~/.wc to Docker image
         """
         host_dirname = self.config['image']['config_path']
         image_dirname = os.path.join('/root', '.wc')
@@ -417,7 +416,7 @@ class WcEnvManager(object):
         self._docker_client.login(config['username'], password=config['password'])
 
     def push_image(self, image_repo, image_tags):
-        """ Push Docker image to DockerHub 
+        """ Push Docker image to DockerHub
 
         Args:
             image_repo (:obj:`str`): image repository
@@ -562,7 +561,7 @@ class WcEnvManager(object):
             overwrite (:obj:`bool`, optional): if :obj:`True`, overwrite file
 
         Raises:
-            :obj:`WcEnvManagerError`: if the container_path already exists and 
+            :obj:`WcEnvManagerError`: if the container_path already exists and
                 :obj:`overwrite` is :obj:`False`
         """
         is_path, _ = self.run_process_in_container(
@@ -588,7 +587,7 @@ class WcEnvManager(object):
             overwrite (:obj:`bool`, optional): if :obj:`True`, overwrite file
 
         Raises:
-            :obj:`WcEnvManagerError`: if the container_path already exists and 
+            :obj:`WcEnvManagerError`: if the container_path already exists and
                 :obj:`overwrite` is :obj:`False`
         """
         is_file = os.path.isfile(local_path) or os.path.isdir(local_path)

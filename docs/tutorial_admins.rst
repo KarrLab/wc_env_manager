@@ -16,18 +16,18 @@ Create contexts for building the *wc_env* and *wc_env_dependencies* images
 First, create contexts for building the images. This can include licenses and installers for proprietary software packages.
 
 #. Prepare CPLEX installation
-   
+
    a. Download CPLEX installer from `https://ibm.onthehub.com <https://ibm.onthehub.com>`_
    b. Save the installer to the base image context
    c. Set the execution bit for the installer by running `chmod ugo+x /path/to/installer`
 
 #. Prepare Gurobi installation
-   
+
    a. Create license at `http://www.gurobi.com/downloads/licenses/license-center <http://www.gurobi.com/downloads/licenses/license-center>`_
    b. Copy the license to the `gurobi_license` build argument for the base image in the *wc_env_manager* configuration
 
 #. Prepare Mosek installation
-   
+
    a. Request an academic license at `https://license.mosek.com/academic/ <https://license.mosek.com/academic/>`_
    b. Receive a license by email
    c. Save the license to the context for the base image as `mosek.lic`

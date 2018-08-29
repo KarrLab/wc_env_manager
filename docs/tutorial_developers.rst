@@ -12,7 +12,7 @@ Pulling existing Docker images
 ------------------------------
 
 First, use the following command to pull existing WC modeling Docker images. This will pull both the base image with third part dependencies, *wc_env_dependencies*, and the image with WC models and modeling tools, *wc_env*.::
-  
+
   wc_env_manager pull
 
 The following commands can also be used to pull the individual images.::
@@ -59,6 +59,6 @@ The Docker images created with *wc_env_manager* can be used with external integr
 * `Jupyter Notebook <https://jupyter-docker-stacks.readthedocs.io/>`_
 * `PyCharm Professional Edition <https://www.jetbrains.com/help/pycharm/docker.html>`_
 * Other IDEs:
-    
+
     #. Install the IDE in a Docker image
     #. Use X11 forwarding to render graphical output from a Docker container to your host. See `Using GUI's with Docker <https://jupyter-docker-stacks.readthedocs.io>`_ for more information.

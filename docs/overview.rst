@@ -7,7 +7,7 @@ Features
 *wc_env_manager* provides a high-level interface for the following modeling tasks
 
 * Build WC modeling computing environments (Docker images and containers)
-    
+
     1. Copy files (such as configuration files and authentication keys) into image
     2. Install GitHub SSH key into image
     3. Install WC models and WC modeling tools from GitHub into image
