@@ -268,7 +268,7 @@ class WcEnvManager(object):
         template.stream(**context).dump(dockerfile_name)
 
         # build image
-        config = self.config['image']        
+        config = self.config['image']
         image = self._build_image(config['repo'], config['tags'],
                                   dockerfile_name, {}, temp_dir_name)
 
@@ -433,7 +433,8 @@ class WcEnvManager(object):
         Returns:
             :obj:`docker.models.images.Image`: Docker image
         """
-        image = self._docker_client.images.pull(image_repo, tag=image_tags[0])
+        for tag in image_tags:
+            image = self._docker_client.images.pull(image_repo, tag=tag)
         if image_repo == self.config['base_image']['repo'] and image_tags == self.config['base_image']['tags']:
             self._base_image = image
         elif image_repo == self.config['image']['repo'] and image_tags == self.config['image']['tags']:

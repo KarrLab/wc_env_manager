@@ -295,6 +295,7 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
             file.write('ABC')
         with open(os.path.join(temp_dir_name, 'b'), 'w') as file:
             file.write('DEF')
+        os.mkdir(os.path.join(temp_dir_name, 'c'))
         mgr.config['image']['paths_to_copy'] = {
             'a': {
                 'host': os.path.join(temp_dir_name, 'a'),
@@ -303,6 +304,10 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
             'b': {
                 'host': os.path.join(temp_dir_name, 'b'),
                 'image': '/tmp/b',
+            },
+            'c': {
+                'host': os.path.join(temp_dir_name, 'c'),
+                'image': '/tmp/c',
             },
         }
 
@@ -323,10 +328,13 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
                                      os.path.join(temp_dir_name, 'a2'))
         mgr.copy_path_from_container('/tmp/b',
                                      os.path.join(temp_dir_name, 'b2'))
+        mgr.copy_path_from_container('/tmp/c',
+                                     os.path.join(temp_dir_name, 'c'))
         with open(os.path.join(temp_dir_name, 'a2'), 'r') as file:
             self.assertEqual(file.read(), 'ABC')
         with open(os.path.join(temp_dir_name, 'b2'), 'r') as file:
             self.assertEqual(file.read(), 'DEF')
+        self.assertTrue(os.path.isdir(os.path.join(temp_dir_name, 'c')))
 
         shutil.rmtree(temp_dir_name)
         mgr.stop_container()

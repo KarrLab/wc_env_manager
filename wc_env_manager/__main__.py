@@ -154,9 +154,9 @@ class AllController(cement.Controller):
         arguments = [
         ]
 
-    @cement.ex(hide=True)
-    def _default(self):
-        pass
+    # @cement.ex(hide=True)
+    # def _default(self):
+    #   self._parser.print_help()
 
     @cement.ex(help='Build base image, image, and container')
     def build(self):
