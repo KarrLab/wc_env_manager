@@ -13,6 +13,8 @@ package_data = {
     name: [
         'VERSION',
         'config/*.cfg',
+        'assets/*'
+        'assets/**/*'
     ],
 }
 

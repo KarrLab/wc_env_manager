@@ -13,3 +13,6 @@ include requirements.optional.txt
 
 # configuration files
 recursive-include wc_env_manager *.cfg
+
+# assets
+recursive-include wc_env_manager/assets *
