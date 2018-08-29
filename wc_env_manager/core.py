@@ -70,6 +70,7 @@ class WcEnvManager(object):
     """
 
     # todo: update docs
+    # todo: test in CircleCI
     # todo: reduce privileges in Docker image by creating separate user; update docs
     # todo: manipulate Python path for packages without setup.py
 
@@ -743,7 +744,7 @@ class WcEnvManager(object):
 
 
 class WcEnvManagerError(Exception):
-    """ Base class for exceptions in `wc_env_manager`
+    """ Base class for exceptions in *wc_env_manager*
 
     Attributes:
         message (:obj:`str`): the exception's message

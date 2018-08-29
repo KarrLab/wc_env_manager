@@ -8,24 +8,23 @@
 
 # *wc_env_manager*: Tools for managing computing environments for whole-cell modeling
 
-*wc_env_manager* helps modelers and software developers setup computing environments for developing, testing, and running whole-cell (WC) models and WC modeling software. This eliminates the need for each modeler and software developer to install and configure the numerous dependencies required for WC modeling. This helps modelers and software developers focus on developing WC models and software tools rather than on installing and maintaining complicated dependencies.
+*wc_env_manager* helps modelers and software developers setup customizable computing environments for developing, testing, and running whole-cell (WC) models and WC modeling software. This eliminates the need for each modeler and software developer to install and configure the numerous dependencies required for WC modeling. This helps modelers and software developers focus on developing WC models and software tools, rather than on installing and maintaining complicated dependencies.
 
-In addition, *wc_env_manager* facilitates collaboration by helping WC modelers and software developers share a common computing environment. Furthermore, *wc_env_manager* helps helps software developers anticipate and debug issues in deployment by eanbling developers to replicate the same environment used to test and deploy WC models and tools in systems such as Amazon EC2, CircleCI, and Heroku.
+In addition, *wc_env_manager* facilitates collaboration by helping WC modelers and software developers share a common computing environment. Furthermore, *wc_env_manager* helps software developers anticipate and debug issues in deployment by enabling developers to replicate the same environment used to test and deploy WC models and tools in systems such as Amazon EC2, CircleCI, and Heroku.
 
-*wc_env_manager* uses [Docker](https://www.docker.com>) to setup a local computing environment that contains all of the software packages needed to run WC models and WC modeling software. This includes
+*wc_env_manager* uses [Docker](https://www.docker.com>) to setup customizable computing environments that contains all of the software packages needed to run WC models and WC modeling software. This includes
 
 * Required non-Python packages
 * Required Python packages from [PyPI](https://pypi.python.org/pypi>) and other sources
-* WC software packages from the [Karr Lab GitHub repository](https://github.com/KarrLab)
-* Optionally, local clones of these WC modeling software packages
-* Optionally, other local software
+* [WC models and WC modeling tools](https://github.com/KarrLab)
+* Optionally, local packages on the user's machine such as clones of these WC models and WC modeling tools
 
 *wc_env_manager* supports two modes:
 
-* **Development:** *wc_env_manager* runs WC models and WC modeling software that is located on your machine. This is useful for testing WC models and WC modeling software before committing it to GitHub.
-* **Deployment:** *wc_env_manager* runs WC models and WC modeling software from GitHub.
+* **Development:** *wc_env_manager* can run WC models and WC modeling software that is located on the user's machine. This is useful for testing WC models and WC modeling software before committing it to GitHub.
+* **Deployment:** *wc_env_manager* can run WC models and WC modeling software from external sources such as GitHub.
 
-## Installation
+## Installation and usage
 Please see the [documentation](http://docs.karrlab.org/wc_env_manager).
 
 ## Documentation
