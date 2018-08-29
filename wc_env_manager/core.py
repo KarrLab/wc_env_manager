@@ -46,6 +46,7 @@ import requirements
 import shutil
 import subprocess
 import tempfile
+import time
 import wc_env_manager.config.core
 import yaml
 
@@ -161,7 +162,15 @@ class WcEnvManager(object):
                 package_name, _, _ = package_name.partition('-')
 
                 dir_name = os.path.join(temp_dir_name, package_name)
-                git.Repo.clone_from(url, dir_name)
+                max_tries = 5
+                for i_try in range(max_tries):
+                    try:
+                        git.Repo.clone_from(url, dir_name)
+                        break
+                    except git.exc.GitCommandError as exception:  # pragma: no cover
+                        if i_try == max_tries - 1:  # pragma: no cover
+                            raise exception  # pragma: no cover
+                        time.sleep(1.)
 
                 def strip_github_packages(file_name):
                     if os.path.isfile(file_name):
