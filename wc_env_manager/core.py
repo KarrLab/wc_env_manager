@@ -69,10 +69,6 @@ class WcEnvManager(object):
         _container (:obj:`docker.models.containers.Container`): current Docker container
     """
 
-    # todo: test in CircleCI
-    # todo: reduce privileges in Docker image by creating separate user; update docs
-    # todo: manipulate Python path for packages without setup.py
-
     def __init__(self, config=None):
         """
         Args:
