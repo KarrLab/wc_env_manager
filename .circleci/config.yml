@@ -3,7 +3,7 @@ jobs:
   build:
     working_directory: /root/project
     docker:
-      - image: karrlab/wc_env_dependencies:latest
+      - image: karrlab/wc_env_dependencies:0.0.34
     steps:
       # Clone repository
       - checkout
