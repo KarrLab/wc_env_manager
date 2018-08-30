@@ -68,34 +68,16 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
 
     def test_get_required_python_packages(self):
         mgr = self.mgr
-        requirements = mgr.get_required_python_packages()
-        self.assertIn('numpy', requirements)
-        self.assertNotIn('log', requirements)
-
-    def test_get_required_python_packages_errors(self):
-        mgr = self.mgr
         self.mgr.config['image']['python_packages'] = '''
+        git+https://github.com/KarrLab/wc_lang.git#egg=wc_lang-0.0.1[all]
         git+https://github.com/KarrLab/wc_utils.git#egg=wc_utils-0.0.1[all]
+        git+https://github.com/KarrLab/pkg_utils.git#egg=pkg_utils-0.0.3[all]
+        git+https://github.com/KarrLab/pkg_utils.git#egg=pkg_utils-0.0.3[all]
         '''
-
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Extras are not supported'):
-            return_value = ([], {'all': ['pkg[opt]']}, None, None,)
-            with mock.patch('pkg_utils.get_dependencies', return_value=return_value):
-                mgr.get_required_python_packages()
-
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Specifiers are not supported'):
-            return_value = ([], {'all': ["pkg; python_version > '2.7'"]}, None, None,)
-            with mock.patch('pkg_utils.get_dependencies', return_value=return_value):
-                mgr.get_required_python_packages()
-
-        return_value = ([], {'all': ['pkg', 'pkg > 3.0']}, None, None,)
-        with mock.patch('pkg_utils.get_dependencies', return_value=return_value):
-            mgr.get_required_python_packages()
-
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Conflicting specs'):
-            return_value = ([], {'all': ['pkg > 2.7', 'pkg > 3.0']}, None, None,)
-            with mock.patch('pkg_utils.get_dependencies', return_value=return_value):
-                mgr.get_required_python_packages()
+        reqs = mgr.get_required_python_packages()
+        self.assertIn('numpy', reqs)
+        self.assertIn('git+https://github.com/KarrLab/log.git#egg=log-2016.10.12', reqs)
+        self.assertIn('git+https://github.com/davidfischer/requirements-parser.git#egg=requirements_parser-0.1.0', reqs)
 
     def test_build_base_image(self):
         mgr = self.mgr

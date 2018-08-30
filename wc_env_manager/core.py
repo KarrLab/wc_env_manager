@@ -113,6 +113,8 @@ class WcEnvManager(object):
         with open(os.path.join(temp_dir_name, 'requirements.txt'), 'w') as file:
             file.write('\n'.join(reqs))
 
+        print(temp_dir_name)
+
         # render Dockerfile
         template_dockerfile_name = config['dockerfile_template_path']
         with open(template_dockerfile_name) as file:
@@ -144,9 +146,18 @@ class WcEnvManager(object):
         temp_dir_name = tempfile.mkdtemp()
 
         # save requirements for image to temp file and parse requirements
+        python_packages = []
+        wc_python_packages = []
+        for pkg in self.config['image']['python_packages'].split('\n'):
+            pkg = pkg.strip()
+            python_packages.append(pkg)
+            if 'git+https://' in pkg:
+                _, _, pkg_name = pkg.partition('#egg=')
+                pkg_name, _, _ = pkg_name.partition('-')
+                wc_python_packages.append(pkg_name)
+
         _, dependency_links = pkg_utils.parse_requirement_lines(
-            self.config['image']['python_packages'].split('\n'),
-            include_extras=False, include_specs=False, include_markers=False)
+            python_packages, include_extras=False, include_specs=False, include_markers=False)
 
         # collate requirements for packages
         reqs = set()
@@ -167,49 +178,60 @@ class WcEnvManager(object):
                             raise exception  # pragma: no cover
                         time.sleep(1.)
 
-                def strip_github_packages(file_name):
+                def read_packages(file_name,):
+                    lines_to_keep = []
+
                     if os.path.isfile(file_name):
                         with open(file_name, 'r') as file:
                             lines = file.readlines()
-                        lines = filter(lambda line: 'git+https://' not in line, lines)
-                        with open(file_name, 'w') as file:
-                            file.writelines(lines)
 
-                strip_github_packages(os.path.join(dir_name, 'requirements.txt'))
-                strip_github_packages(os.path.join(dir_name, 'requirements.optional.txt'))
-                strip_github_packages(os.path.join(dir_name, 'tests', 'requirements.txt'))
-                strip_github_packages(os.path.join(dir_name, 'docs', 'requirements.txt'))
+                        for line in lines:
+                            line = line.strip()
+                            if not line:
+                                continue
+                            if line[0] in ['#', '[']:
+                                continue
 
-                install_requires, extras_require, _, _ = \
-                    pkg_utils.get_dependencies(dir_name)
-                reqs.update(set(install_requires))
-                reqs.update(set(extras_require['all']))
+                            if '#egg' in line and line.find('#', line.find('#egg') + 1) >= 0:
+                                line = line[0:line.find('#', line.find('#egg') + 1)].strip()
+                            elif line.find('#') > line.find('#egg'):
+                                line = line[0:line.find('#')].strip()
 
-        reqs_dict = {}
+                            keep = True
+                            if 'git+https://' in line:
+                                for pkg in wc_python_packages:
+                                    if '#egg=' + pkg + '-' in line:
+                                        keep = False
+                                        break
+                            if keep:
+                                lines_to_keep.append(line)
+
+                    return lines_to_keep
+
+                reqs.update(read_packages(os.path.join(dir_name, 'requirements.txt')))
+                reqs.update(read_packages(os.path.join(dir_name, 'requirements.optional.txt')))
+                reqs.update(read_packages(os.path.join(dir_name, 'tests', 'requirements.txt')))
+                reqs.update(read_packages(os.path.join(dir_name, 'docs', 'requirements.txt')))
+
+                shutil.rmtree(dir_name)
+
+        # remove duplicate requirements
+        reqs = sorted(reqs, reverse=True)
+        unique_reqs = []
         for req in reqs:
-            req_obj = requirements.parser.Requirement.parse_line(req)
-            if req_obj.extras:
-                raise WcEnvManagerError('Extras are not supported: {}'.format(req))
-            if ';' in req:
-                raise WcEnvManagerError('Specifiers are not supported: {}'.format(req))
-            if req_obj.name not in reqs_dict:
-                reqs_dict[req_obj.name] = set()
-            if req_obj.specs:
-                reqs_dict[req_obj.name].add(tuple(req_obj.specs))
-
-        reqs = []
-        for name, specs in reqs_dict.items():
-            if len(specs) > 1:
-                raise WcEnvManagerError('Conflicting specs for {}'.format(name))
-            if specs:
-                name += ' ' + ','.join(' '.join(spec) for spec in list(specs)[0])
-            reqs.append(name)
+            keep = True
+            for u_req in unique_reqs:
+                if req in u_req:
+                    keep = False
+                    break
+            if keep:
+                unique_reqs.append(req)
 
         # remove temporary directory
         shutil.rmtree(temp_dir_name)
 
         # return requirements
-        return sorted(reqs)
+        return sorted(unique_reqs)
 
     def build_image(self):
         """ Build Docker image for WC modeling environment
