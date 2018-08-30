@@ -578,6 +578,7 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
         self.assertEqual(mgr.get_containers(), [])
 
 
+@unittest.skipIf(whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
 class WcEnvHostTestCase(unittest.TestCase):
     def setUp(self):
         self.mgr = wc_env_manager.core.WcEnvManager()
