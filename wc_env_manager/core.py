@@ -113,8 +113,6 @@ class WcEnvManager(object):
         with open(os.path.join(temp_dir_name, 'requirements.txt'), 'w') as file:
             file.write('\n'.join(reqs))
 
-        print(temp_dir_name)
-
         # render Dockerfile
         template_dockerfile_name = config['dockerfile_template_path']
         with open(template_dockerfile_name) as file:
