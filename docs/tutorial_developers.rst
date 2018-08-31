@@ -26,11 +26,26 @@ Building containers for WC modeling
 
 Second, set the configuration for the containers created by *wc_env_manager* by creating a configuration file `./wc_env_manager.cfg` following the schema outlined in `/path/to/wc_env_manager/wc_env_manager/config/core.schema.cfg` and the defaults in `/path/to/wc_env_manager/wc_env_manager/config/core.default.cfg`.
 
-    * Set the host paths that should be mounted into the containers. This should include the root directory of your clones of WC models and WC modeling tools (e.g. map host:~/Documents to container:/root/Documents-Host).
-    * Set the WC modeling packages that should be installed into *wc_env*. This should be specified in the pip requirements.txt format and should be specified in terms of paths within the container. The following example illustrates how install clones of *wc_lang* and *wc_utils* mounted from the host into the container.::
+    * Set the host paths that should be mounted into the containers. Typically, this should including mounting the parent directory of your Git repositories into the container. For example, this configuration will map (a) the Documents directory of your host (`${HOME}/Documents`) to the `/root/host/Documents` directory of the container and (b) your the WC modeling configuration directory of your host (`${HOME}/.wc`) to the WC modeling configuration directory of the container (`/root/.wc`). `${HOME}` will be substituted for the path to your home directory on your host.::
 
-        /root/Documents-Host/wc_lang
-        /root/Documents-Host/wc_utils
+        [wc_env_manager]
+            [[container]]
+                [[[paths_to_mount]]]
+                    [[[[${HOME}/Documents]]]]
+                        bind = /root/host/Documents
+                        mode = rw
+                    [[[[${Home}/.wc]]]]
+                        bind = /root/.wc
+                        mode = rw
+
+    * Set the WC modeling packages that should be installed into *wc_env*. This should be specified in the pip requirements.txt format and should be specified in terms of paths within the container. The following example illustrates how to create editable installations of clones of *wc_lang* and *wc_utils* mounted from the host into the container.::
+
+        [wc_env_manager]
+            [[container]]
+                python_package = '''
+                    -e /root/Documents-Host/wc_lang
+                    -e /root/Documents-Host/wc_utils
+                    '''
 
 Third, use the following command to use *wc_env* to construct a Docker container.::
 
