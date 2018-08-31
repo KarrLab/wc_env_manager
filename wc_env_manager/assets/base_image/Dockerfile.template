@@ -342,7 +342,6 @@ COPY requirements.txt /tmp/
 RUN pip${python_version_major_minor} install -U pip setuptools \
     && pip${python_version_major_minor} install -U \
         cython \
-        et3 \
         ipython \
         mock \
         numpy \
@@ -352,10 +351,11 @@ RUN pip${python_version_major_minor} install -U pip setuptools \
         six \
     && pip${python_version_major_minor} install -U git+https://github.com/jjhelmus/CyLP.git@py3#egg=cylp \
     && pip${python_version_major_minor} install -r /tmp/requirements.txt \
-    \
     && rm tmp/requirements.txt
 
-RUN python${python_version_major_minor} -c "import ete3; ete3.NCBITaxa().get_descendant_taxa('Homo');"
+# Install NCBI taxonomy database and ETE3 package
+RUN pip${python_version_major_minor} install ete3 \
+    && python${python_version_major_minor} -c "import ete3; ete3.NCBITaxa().get_descendant_taxa('Homo');"
 
 # final command
 CMD bash
