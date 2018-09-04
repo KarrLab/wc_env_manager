@@ -80,7 +80,7 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
         reqs = mgr.get_required_python_packages()
         self.assertIn('numpy', reqs)
         self.assertIn('git+https://github.com/KarrLab/log.git#egg=log-2016.10.12', reqs)
-        self.assertIn('git+https://github.com/davidfischer/requirements-parser.git#egg=requirements_parser-0.1.0', reqs)
+        self.assertIn('git+https://github.com/davidfischer/requirements-parser.git#egg=requirements_parser-0.2.0 >= 0.2.0', reqs)
 
     def test_build_base_image(self):
         mgr = self.mgr
@@ -347,6 +347,8 @@ class WcEnvManagerDockerHubTestCase(unittest.TestCase):
 
     def test_push_image_error(self):
         mgr = self.mgr
+        mgr.config['base_image']['repo'] = 'karrlab/does_not_exist'
+        mgr.config['base_image']['tags'] = ['latest']
         with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'failed'):
             mgr.push_image(mgr.config['base_image']['repo'], mgr.config['base_image']['tags'])
 
