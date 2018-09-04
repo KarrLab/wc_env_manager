@@ -1,6 +1,7 @@
 cement >= 3.0.0 # for command line programs
 configobj
 docker
+docker_squash
 gitpython
 jinja2
 git+git://github.com/KarrLab/pkg_utils.git#egg=pkg_utils-0.0.3
