@@ -4,7 +4,7 @@
 # :License: MIT
 
 # base
-FROM ubuntu:latest
+FROM ubuntu
 
 # Create user to run operations in containers
 RUN groupadd -r -g 999 container_user \
@@ -15,12 +15,12 @@ RUN apt-get update -y
 
 # set time zone
 ARG timezone=America/New_York
-RUN apt-get install -y tzdata \
+RUN apt-get install -y --no-install-recommends tzdata \
     && ln -fs /usr/share/zoneinfo/$timezone /etc/localtime \
     && dpkg-reconfigure -f noninteractive tzdata
 
 # install apt packages
-RUN apt-get install -y \
+RUN apt-get install -y --no-install-recommends \
     build-essential \
     ca-certificates \
     cmake \
@@ -64,7 +64,7 @@ ENV LC_ALL=en_US.UTF-8
 ARG python_version=3.6.5
 ARG python_version_major_minor=3.6
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib
-RUN apt-get install -y tk-dev \
+RUN apt-get install -y --no-install-recommends tk-dev \
     \
     && cd /tmp \
     && wget https://www.python.org/ftp/python/${python_version}/Python-${python_version}.tgz -O /tmp/Python-${python_version}.tgz \
@@ -131,9 +131,9 @@ RUN cd /tmp \
     && rm /tmp/gurobi${gurobi_version}_linux64.tar.gz \
     && rm /tmp/install_gurobi.exp
 ARG gurobi_version_nodot=800
-ENV GUROBI_HOME=/opt/gurobi${gurobi_version_nodot}/linux64
-ENV PATH="${PATH}:${GUROBI_HOME}/bin"
-ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${GUROBI_HOME}/lib"
+ENV GUROBI_HOME=/opt/gurobi${gurobi_version_nodot}/linux64 \
+    PATH="${PATH}:${GUROBI_HOME}/bin" \
+    LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${GUROBI_HOME}/lib"
 {%- endif %}
 
 # install mosek
@@ -151,8 +151,8 @@ RUN cd /tmp \
     && python${python_version_major_minor} setup.py install \
     && rm /tmp/mosektoolslinux64x86.tar.bz2 \
     && rm ${HOME}/mosek/{{ mosek_license }}
-ENV PATH="${PATH}:/opt/mosek/${mosek_version_major}/tools/platform/linux64x86/bin"
-ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/opt/mosek/${mosek_version_major}/tools/platform/linux64x86/bin"
+ENV PATH="${PATH}:/opt/mosek/${mosek_version_major}/tools/platform/linux64x86/bin" \
+    LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/opt/mosek/${mosek_version_major}/tools/platform/linux64x86/bin"
 {%- endif %}
 
 # install xpress
@@ -175,11 +175,11 @@ RUN cd /tmp \
     && rm /tmp/{{ xpress_license }} \
     && rm /tmp/xpress.egg-info \
     && rm /opt/xpressmp/bin/{{ xpress_license }}
-ENV XPRESSDIR=/opt/xpressmp
-ENV PATH=$PATH:$XPRESSDIR/bin
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/lib/x86_64-linux-gnu:$XPRESSDIR/lib
-ENV CLASSPATH=$CLASSPATH:$XPRESSDIR/lib/xprs.jar:$XPRESSDIR/lib/xprb.jar:$XPRESSDIR/lib/xprm.jar
-ENV XPRESS=$XPRESSDIR/bin
+ENV XPRESSDIR=/opt/xpressmp \
+    PATH=$PATH:$XPRESSDIR/bin \
+    LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/lib/x86_64-linux-gnu:$XPRESSDIR/lib \
+    CLASSPATH=$CLASSPATH:$XPRESSDIR/lib/xprs.jar:$XPRESSDIR/lib/xprb.jar:$XPRESSDIR/lib/xprm.jar \
+    XPRESS=$XPRESSDIR/bin
 {%- endif %}
 
 # COIN-OR: CBC (latest version compatible with CyLP)
@@ -198,9 +198,9 @@ RUN cd /tmp \
     && cd ../../ \
     && rm -r Cbc-${cbc_version} \
     && rm Cbc-${cbc_version}.tgz
-ENV COIN_INSTALL_DIR=/opt/coin-or/cbc
-ENV PATH=${PATH}:/opt/coin-or/cbc/bin
-ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/coin-or/cbc/lib
+ENV COIN_INSTALL_DIR=/opt/coin-or/cbc \
+    PATH=${PATH}:/opt/coin-or/cbc/bin \
+    LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/coin-or/cbc/lib
 
 # # COIN-OR: coinutils
 # ARG coin_utils_version=2.10.14
@@ -218,8 +218,8 @@ ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/coin-or/cbc/lib
 #     && cd /tmp \
 #     && rm -r CoinUtils-${coin_utils_version} \
 #     && rm CoinUtils-${coin_utils_version}.tgz
-# ENV PATH=${PATH}:/opt/coin-or/coinutils/bin
-# ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/coin-or/coinutils/lib
+# ENV PATH=${PATH}:/opt/coin-or/coinutils/bin \
+#     LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/coin-or/coinutils/lib
 #
 # # install qpOASES
 # ARG qpoases_version=3.2.1
@@ -244,7 +244,7 @@ ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/coin-or/cbc/lib
 {% if minos_license -%}
 ARG minos_version=5.6
 RUN cd /tmp \
-    && apt-get install -y \
+    && apt-get install -y --no-install-recommends \
         csh \
         gfortran \
     && pip${python_version_major_minor} install numpy \
@@ -298,7 +298,8 @@ RUN cd /tmp \
     && rm -r soplex-${soplex_version}  \
     && rm soplex-${soplex_version}.tgz  \
     \
-    && apt-get install -y libgmp-dev \
+    && apt-get install -y --no-install-recommends \
+        libgmp-dev \
     && pip${python_version_major_minor} install cython \
     && cd /tmp \
     && git clone https://github.com/SBRG/soplex_cython.git \
@@ -320,7 +321,7 @@ RUN cd /tmp \
 
 # Docker
 # RUN apt-get update \
-#     && apt-get install -y \
+#     && apt-get install -y --no-install-recommends \
 #         apt-transport-https \
 #         ca-certificates \
 #         curl \
@@ -331,7 +332,7 @@ RUN cd /tmp \
 #         $(lsb_release -cs) \
 #         stable" \
 #     && apt-get update \
-#     && apt-get install -y docker-ce
+#     && apt-get install -y --no-install-recommends docker-ce
 
 # CircleCI local build agent
 # RUN curl -o /usr/local/bin/circleci https://circle-downloads.s3.amazonaws.com/releases/build_agent_wrapper/circleci \
