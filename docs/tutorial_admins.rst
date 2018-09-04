@@ -66,12 +66,12 @@ Third, Set the configuration for *wc_env_manager* by creating a configuration fi
 * Set the contexts for building the Docker images and the files that should be copied into the images.
 * Set the build arguments for building the Docker images. This can include licenses for proprietary software packages. For example,::
 
-  [wc_env_manager]
-      [[base_image]]
-          [[[build_args]]]
-              gurobi_version = 8.0.1
-              gurobi_license = ...
-              ...
+    [wc_env_manager]
+        [[base_image]]
+            [[[build_args]]]
+                gurobi_version = 8.0.1
+                gurobi_license = ...
+                ...
 
 * Set the WC modeling packages that should be installed into *wc_env*. For example,::
 

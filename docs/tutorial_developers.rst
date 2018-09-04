@@ -26,7 +26,7 @@ Building containers for WC modeling
 
 Second, set the configuration for the containers created by *wc_env_manager* by creating a configuration file `./wc_env_manager.cfg` following the schema outlined in `/path/to/wc_env_manager/wc_env_manager/config/core.schema.cfg` and the defaults in `/path/to/wc_env_manager/wc_env_manager/config/core.default.cfg`.
 
-    * Set the host paths that should be mounted into the containers. Typically, this should including mounting the parent directory of your Git repositories into the container. For example, this configuration will map (a) the Documents directory of your host (`${HOME}/Documents`) to the `/root/host/Documents` directory of the container and (b) your the WC modeling configuration directory of your host (`${HOME}/.wc`) to the WC modeling configuration directory of the container (`/root/.wc`). `${HOME}` will be substituted for the path to your home directory on your host.::
+    * Configure the host paths that should be mounted into the containers. Typically, this should including mounting the parent directory of your Git repositories into the container. For example, this configuration will map (a) the Documents directory of your host (`${HOME}/Documents`) to the `/root/host/Documents` directory of the container and (b) your the WC modeling configuration directory of your host (`${HOME}/.wc`) to the WC modeling configuration directory of the container (`/root/.wc`). `${HOME}` will be substituted for the path to your home directory on your host.::
 
         [wc_env_manager]
             [[container]]
@@ -38,14 +38,22 @@ Second, set the configuration for the containers created by *wc_env_manager* by 
                         bind = /root/.wc
                         mode = rw
 
-    * Set the WC modeling packages that should be installed into *wc_env*. This should be specified in the pip requirements.txt format and should be specified in terms of paths within the container. The following example illustrates how to create editable installations of clones of *wc_lang* and *wc_utils* mounted from the host into the container.::
+    * Configure the WC modeling packages that should be installed into *wc_env*. This should be specified in the pip requirements.txt format and should be specified in terms of paths within the container. The following example illustrates how to create editable installations of clones of *wc_lang* and *wc_utils* mounted from the host into the container.::
 
         [wc_env_manager]
             [[container]]
                 python_package = '''
-                    -e /root/Documents-Host/wc_lang
-                    -e /root/Documents-Host/wc_utils
+                    -e /root/host/Documents/wc_lang
+                    -e /root/host/Documents/wc_utils
                     '''
+
+    * Configure environment variables that should be set in the Docker container. The following example illustrates how to set the ``PYTHONPATH`` environment variable to the paths to *wc_lang* and *wc_sim*. Note, we recommend using pip to manipulate the Python path rather than directly manipulating the ``PYTHONPATH`` environment variable. We only recommend manipulating the ``PYTHONPATH`` environment variable for packages that don't have ``setup.py`` scripts or for packages that ``setup.py`` scripts that you temporarily don't want to run.::
+
+        [wc_env_manager]
+            [[container]]
+                [[[environment]]]
+                    PYTHONPATH = '/root/host/Documents/wc_lang:/root/host/Documents/wc_utils'
+
 
 Third, use the following command to use *wc_env* to construct a Docker container.::
 

@@ -15,6 +15,7 @@ import docker
 import git
 import mock
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -464,6 +465,26 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
         mgr.config['container']['python_packages'] = 'undefined_package'
         with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'No matching distribution'):
             mgr.setup_container()
+
+    def test_setup_container_with_python_path(self):
+        mgr = self.mgr
+        mgr.config['image']['python_packages'] = ''
+        mgr.config['container']['python_packages'] = ''
+        mgr.config['container']['environment'] = {
+            'PYTHONPATH': ':'.join([
+                '/root/host/Documents/package_1',
+                '/root/host/Documents/package_2'
+            ]),
+        }
+
+        container = mgr.build_container()
+        mgr.setup_container()
+        output, _ = mgr.run_process_in_container(['bash', '-c', 'echo $PYTHONPATH'])
+        print(output)
+        self.assertEqual(output, (
+            '/root/host/Documents/package_1:'
+            '/root/host/Documents/package_2'
+        ))
 
     def test_copy_path_to_from_docker_container(self):
         mgr = self.mgr

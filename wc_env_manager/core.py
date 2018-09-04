@@ -519,13 +519,19 @@ class WcEnvManager(object):
         Returns:
             :obj:`docker.models.containers.Container`: Docker container
         """
+        # make name for container
         name = self.make_container_name()
+
+        # create container
         container = self._container = self._docker_client.containers.run(
             self.config['image']['repo'] + ':' + self.config['image']['tags'][0], name=name,
             volumes=self.config['container']['paths_to_mount'],
+            environment=self.config['container']['environment'],
             stdin_open=True, tty=tty,
             detach=True,
             user=WcEnvUser.root.name)
+
+        # return container
         return container
 
     def make_container_name(self):
