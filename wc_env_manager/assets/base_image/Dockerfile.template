@@ -26,7 +26,6 @@ RUN apt-get install -y --no-install-recommends \
     cmake \
     default-jre \
     enchant \
-    expect \
     git \
     graphviz \
     gzip \
@@ -44,7 +43,6 @@ RUN apt-get install -y --no-install-recommends \
     libssl-dev \
     libxml2-dev \
     mercurial \
-    nano \
     openssl \
     pandoc \
     ssh \
@@ -120,6 +118,7 @@ ARG gurobi_version=8.0.1
 ARG gurobi_license={{ gurobi_license }}
 COPY install_gurobi.exp /tmp/
 RUN cd /tmp \
+    && apt-get install -y --no-install-recommends expect \
     && gurobi_version_major=$(echo $gurobi_version | cut -d "." -f 1,2) \
     && gurobi_version_nodot=$(echo $gurobi_version | sed 's/\.//g') \
     && wget http://packages.gurobi.com/${gurobi_version_major}/gurobi${gurobi_version}_linux64.tar.gz \
@@ -129,7 +128,8 @@ RUN cd /tmp \
     && cd /opt/gurobi${gurobi_version_nodot}/linux64 \
     && python${python_version_major_minor} setup.py install \
     && rm /tmp/gurobi${gurobi_version}_linux64.tar.gz \
-    && rm /tmp/install_gurobi.exp
+    && rm /tmp/install_gurobi.exp \
+    && apt-get remove -y expect
 ARG gurobi_version_nodot=800
 ENV GUROBI_HOME=/opt/gurobi${gurobi_version_nodot}/linux64 \
     PATH="${PATH}:${GUROBI_HOME}/bin" \
@@ -278,7 +278,10 @@ RUN cd /tmp \
     && cd /tmp \
     && rm -r quadLP  \
     && rm quadLP.zip \
-    && rm -r solvemepy
+    && rm -r solvemepy \
+    && apt-get remove -y \
+        csh \
+        gfortran
 {%- endif %}
 
 # SoPlex
@@ -357,6 +360,11 @@ RUN pip${python_version_major_minor} install -U pip setuptools \
 # Install NCBI taxonomy database and ETE3 package
 RUN pip${python_version_major_minor} install ete3 \
     && python${python_version_major_minor} -c "import ete3; ete3.NCBITaxa().get_descendant_taxa('Homo');"
+
+# cleanup
+# RUN apt-get remove -y \
+#     cmake
+RUN rm -rf /var/lib/apt/lists/*
 
 # final command
 CMD bash

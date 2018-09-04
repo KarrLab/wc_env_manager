@@ -34,10 +34,12 @@ import copy
 import configobj
 import dateutil.parser
 import docker
+import docker_squash.squash
 import enum
 import git
 import glob
 import jinja2
+import logging
 import os
 import pkg_utils
 import re
@@ -45,6 +47,7 @@ import requests
 import requirements
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import wc_env_manager.config.core
@@ -64,6 +67,7 @@ class WcEnvManager(object):
         config (:obj:`configobj.ConfigObj`): Dictionary of configuration options. See
             `wc_env_manager/config/core.schema.cfg`.
         _docker_client (:obj:`docker.client.DockerClient`): client connected to the Docker daemon
+        _base_image_unsquashed (:obj:`docker.models.images.Image`): unsquasehd version of the current base Docker image
         _base_image (:obj:`docker.models.images.Image`): current base Docker image
         _image (:obj:`docker.models.images.Image`): current Docker image
         _container (:obj:`docker.models.containers.Container`): current Docker container
@@ -84,10 +88,12 @@ class WcEnvManager(object):
         self._docker_client = docker.from_env()
 
         # get image and current container
+        self._base_image_unsquashed = None
         self._base_image = None
         self._image = None
         self._container = None
 
+        self.set_image(config['base_image']['repo_unsquashed'], self.get_latest_image(config['base_image']['repo_unsquashed']))
         self.set_image(config['base_image']['repo'], self.get_latest_image(config['base_image']['repo']))
         self.set_image(config['image']['repo'], self.get_latest_image(config['image']['repo']))
         self.set_container(self.get_latest_container())
@@ -122,12 +128,38 @@ class WcEnvManager(object):
         template.stream(**config['build_args']).dump(dockerfile_path)
 
         # build image
-        image = self._build_image(config['repo'], config['tags'], dockerfile_path,
-                                  config['build_args'], temp_dir_name,
-                                  pull_base_image=True)
+        image_unsquashed = self._build_image(config['repo_unsquashed'], config['tags'], dockerfile_path,
+                                             config['build_args'], temp_dir_name,
+                                             pull_base_image=True)
+        self._base_image_unsquashed = image_unsquashed
 
         # cleanup temporary directory
         shutil.rmtree(temp_dir_name)
+
+        # squash image
+        log = logging.getLogger()
+        if self.config['verbose']:
+            log.setLevel(logging.INFO)
+
+            handler = logging.StreamHandler(sys.stdout)
+            log.addHandler(handler)
+
+            formatter = logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
+            handler.setFormatter(formatter)
+
+        docker_squash.squash.Squash(
+            log=log,
+            image=config['repo_unsquashed'] + ':' + config['tags'][0],
+            tag=config['repo'] + ':' + config['tags'][0]).run()
+
+        # get squashed image
+        image = self._docker_client.images.get(config['repo'] + ':' + config['tags'][0])
+        self._base_image = image
+
+        # tag squashed image
+        for tag in config['tags']:
+            assert(image.tag(config['repo'], tag=tag))
+        image.reload()
 
         # return image
         return image
@@ -295,6 +327,7 @@ class WcEnvManager(object):
         config = self.config['image']
         image = self._build_image(config['repo'], config['tags'],
                                   dockerfile_name, {}, temp_dir_name)
+        self._image = image
 
         # cleanup temporary directory
         shutil.rmtree(temp_dir_name)
@@ -343,6 +376,7 @@ class WcEnvManager(object):
                 pull=pull_base_image,
                 buildargs=build_args,
                 rm=True,
+                squash=True,
             )
         except requests.exceptions.ConnectionError as exception:
             raise WcEnvManagerError("Docker connection error: service must be running:\n  {}".format(
@@ -357,13 +391,6 @@ class WcEnvManager(object):
             raise WcEnvManagerError("{}:\n  {}".format(
                 exception.__class__.__name__, str(exception).replace('\n', '\n  ')))
 
-        # tag image
-        for tag in image_tags:
-            assert(image.tag(image_repo, tag=tag))
-
-        # re-get image because tags don't automatically update on image object
-        image.reload()
-
         # print log
         if self.config['verbose']:
             for entry in log:
@@ -374,12 +401,14 @@ class WcEnvManager(object):
                 else:
                     pass
 
-        # store reference to latest image
-        if image_repo == self.config['base_image']['repo'] and image_tags == self.config['base_image']['tags']:
-            self._base_image = image
-        elif image_repo == self.config['image']['repo'] and image_tags == self.config['image']['tags']:
-            self._image = image
+        # tag image
+        for tag in image_tags:
+            assert(image.tag(image_repo, tag=tag))
 
+        # re-get image because tags don't automatically update on image object
+        image.reload()
+
+        # return image
         return image
 
     def get_config_file_paths_to_copy_to_image(self):
@@ -459,7 +488,9 @@ class WcEnvManager(object):
         """
         for tag in image_tags:
             image = self._docker_client.images.pull(image_repo, tag=tag)
-        if image_repo == self.config['base_image']['repo'] and image_tags == self.config['base_image']['tags']:
+        if image_repo == self.config['base_image']['repo_unsquashed'] and image_tags == self.config['base_image']['tags']:
+            self._base_image_unsquashed = image
+        elif image_repo == self.config['base_image']['repo'] and image_tags == self.config['base_image']['tags']:
             self._base_image = image
         elif image_repo == self.config['image']['repo'] and image_tags == self.config['image']['tags']:
             self._image = image
@@ -476,7 +507,9 @@ class WcEnvManager(object):
         if isinstance(image, str):
             image = self._docker_client.images.get(image)
 
-        if image_repo == self.config['base_image']['repo']:
+        if image_repo == self.config['base_image']['repo_unsquashed']:
+            self._base_image_unsquashed = image
+        elif image_repo == self.config['base_image']['repo']:
             self._base_image = image
         elif image_repo == self.config['image']['repo']:
             self._image = image

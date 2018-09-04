@@ -39,10 +39,16 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
         dockerfile_template_path = os.path.join(docker_image_context_path, 'Dockerfile')
         with open(dockerfile_template_path, 'w') as file:
             file.write('FROM ubuntu\n')
+            file.write('ENV VAR1=val1\n')
+            file.write('ENV VAR2=val2\n')
+            file.write('ENV VAR3=val3\n')
+            file.write('RUN echo "abc" >> /tmp/test.txt\n')
+            file.write('RUN rm /tmp/test.txt\n')
             file.write('CMD bash\n')
 
         self.mgr = wc_env_manager.core.WcEnvManager({
             'base_image': {
+                'repo_unsquashed': 'karrlab/test_unsquashed',
                 'repo': 'karrlab/test',
                 'tags': ['0.0.1', 'latest'],
                 'dockerfile_template_path': dockerfile_template_path,
@@ -60,6 +66,14 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
 
     def remove_images(self):
         client = docker.from_env()
+        try:
+            client.images.remove('karrlab/test_unsquashed:0.0.1')
+        except docker.errors.ImageNotFound:
+            pass
+        try:
+            client.images.remove('karrlab/test_unsquashed:latest')
+        except docker.errors.ImageNotFound:
+            pass
         try:
             client.images.remove('karrlab/test:0.0.1')
         except docker.errors.ImageNotFound:
@@ -96,6 +110,11 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
             set(image.tags),
             set([config['base_image']['repo'] + ':' + tag for tag in config['base_image']['tags']]))
 
+        image = mgr._docker_client.images.get(config['base_image']['repo_unsquashed'] + ':' + config['base_image']['tags'][0])
+        self.assertEqual(
+            set(image.tags),
+            set([config['base_image']['repo_unsquashed'] + ':' + tag for tag in config['base_image']['tags']]))
+
         image = mgr._docker_client.images.get(config['base_image']['repo'] + ':' + config['base_image']['tags'][0])
         self.assertEqual(
             set(image.tags),
@@ -106,7 +125,7 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
         mgr.config['verbose'] = True
         with capturer.CaptureOutput(relay=False) as capture_output:
             mgr.build_base_image()
-            self.assertRegex(capture_output.get_text(), r'Step 1/2 : FROM ubuntu')
+            self.assertRegex(capture_output.get_text(), r'Step 1/\d+ : FROM ubuntu')
 
     def test_build_base_image_context_error(self):
         mgr = self.mgr
@@ -116,7 +135,7 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
 
         mgr.config['base_image']['context_path'] += '.null'
         with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, ' must be a directory'):
-            mgr._build_image(mgr.config['base_image']['repo'],
+            mgr._build_image(mgr.config['base_image']['repo_unsquashed'],
                              mgr.config['base_image']['tags'],
                              mgr.config['base_image']['dockerfile_template_path'],
                              mgr.config['base_image']['build_args'],
@@ -125,7 +144,7 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
         mgr.config['base_image']['context_path'] = context_path
         mgr.config['base_image']['dockerfile_template_path'] = '/Dockerfile'
         with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, ' must be inside '):
-            mgr._build_image(mgr.config['base_image']['repo'],
+            mgr._build_image(mgr.config['base_image']['repo_unsquashed'],
                              mgr.config['base_image']['tags'],
                              mgr.config['base_image']['dockerfile_template_path'],
                              mgr.config['base_image']['build_args'],
@@ -183,35 +202,49 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
 
         image = mgr.build_base_image()
         for tag in mgr.config['base_image']['tags']:
+            mgr._docker_client.images.get(mgr.config['base_image']['repo_unsquashed'] + ':' + tag)
             mgr._docker_client.images.get(mgr.config['base_image']['repo'] + ':' + tag)
 
+        mgr.remove_image(mgr.config['base_image']['repo_unsquashed'], mgr.config['base_image']['tags'])
         mgr.remove_image(mgr.config['base_image']['repo'], mgr.config['base_image']['tags'])
         for tag in mgr.config['base_image']['tags']:
+            with self.assertRaises(docker.errors.ImageNotFound):
+                mgr._docker_client.images.get(mgr.config['base_image']['repo_unsquashed'] + ':' + tag)
             with self.assertRaises(docker.errors.ImageNotFound):
                 mgr._docker_client.images.get(mgr.config['base_image']['repo'] + ':' + tag)
 
     def test_set_image(self):
         mgr = self.mgr
         mgr.build_base_image()
+        image_unsquashed = mgr.get_latest_image(mgr.config['base_image']['repo_unsquashed'])
         image = mgr.get_latest_image(mgr.config['base_image']['repo'])
 
+        mgr._base_image_unsquashed = None
         mgr._base_image = None
         mgr._image = None
+        mgr.set_image(mgr.config['base_image']['repo_unsquashed'], image_unsquashed)
         mgr.set_image(mgr.config['base_image']['repo'], image)
+        self.assertEqual(mgr._base_image_unsquashed, image_unsquashed)
         self.assertEqual(mgr._base_image, image)
         self.assertEqual(mgr._image, None)
 
+        mgr._base_image_unsquashed = None
         mgr._base_image = None
         mgr._image = None
+        mgr.set_image(mgr.config['base_image']['repo_unsquashed'], image.tags[0])
         mgr.set_image(mgr.config['base_image']['repo'], image.tags[0])
+        self.assertEqual(mgr._base_image_unsquashed, image)
         self.assertEqual(mgr._base_image, image)
         self.assertEqual(mgr._image, None)
 
+        mgr._base_image_unsquashed = None
         mgr._base_image = None
         mgr._image = None
         mgr.config['image']['repo'] = mgr.config['base_image']['repo']
+        mgr.config['base_image']['repo_unsquashed'] = None
         mgr.config['base_image']['repo'] = None
         mgr.set_image(mgr.config['image']['repo'], image.tags[0])
+        self.assertEqual(mgr._base_image_unsquashed, None)
         self.assertEqual(mgr._base_image, None)
         self.assertEqual(mgr._image, image)
 
@@ -333,6 +366,7 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
 class WcEnvManagerDockerHubTestCase(unittest.TestCase):
     def setUp(self):
         mgr = self.mgr = wc_env_manager.core.WcEnvManager()
+        mgr.pull_image(mgr.config['base_image']['repo_unsquashed'], mgr.config['base_image']['tags'])
         mgr.pull_image(mgr.config['base_image']['repo'], mgr.config['base_image']['tags'])
 
     def test_login_docker_hub(self):
@@ -645,8 +679,10 @@ class FullWcEnvTestCase(unittest.TestCase):
         mgr.login_docker_hub()
 
         # build base image
+        mgr.pull_image(config['base_image']['repo_unsquashed'], config['base_image']['tags'])
         mgr.pull_image(config['base_image']['repo'], config['base_image']['tags'])
         mgr.build_base_image()
+        mgr.push_image(config['base_image']['repo_unsquashed'], config['base_image']['tags'])
         mgr.push_image(config['base_image']['repo'], config['base_image']['tags'])
 
         # build image

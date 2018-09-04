@@ -54,18 +54,21 @@ class BaseImageController(cement.Controller):
         mgr = wc_env_manager.core.WcEnvManager({'verbose': VERBOSE})
         config = mgr.config['base_image']
         mgr.login_docker_hub()
-        mgr.push_image(config['repo'], config['tags'])
+        mgr.push_image(config['repo_unsquashed'], config['tags'])
+        mgr.push_image(config['repo'], config['tags'])        
 
     @cement.ex(help='Pull base image')
     def pull(self):
         mgr = wc_env_manager.core.WcEnvManager({'verbose': VERBOSE})
         config = mgr.config['base_image']
+        mgr.push_image(config['repo_unsquashed'], config['tags'])
         mgr.pull_image(config['repo'], config['tags'])
 
     @cement.ex(help='Remove base image')
     def remove(self):
         mgr = wc_env_manager.core.WcEnvManager({'verbose': VERBOSE})
         config = mgr.config['base_image']
+        mgr.remove_image(config['repo_unsquashed'], config['tags'], force=True)
         mgr.remove_image(config['repo'], config['tags'], force=True)
 
     @cement.ex(help='Get base image version')
@@ -183,6 +186,9 @@ class AllController(cement.Controller):
         mgr.login_docker_hub()
 
         config = mgr.config['base_image']
+        mgr.push_image(config['repo_unsquashed'], config['tags'])
+
+        config = mgr.config['base_image']
         mgr.push_image(config['repo'], config['tags'])
 
         config = mgr.config['image']
@@ -193,6 +199,9 @@ class AllController(cement.Controller):
         mgr = wc_env_manager.core.WcEnvManager({'verbose': VERBOSE})
 
         config = mgr.config['base_image']
+        mgr.pull_image(config['repo_unsquashed'], config['tags'])
+
+        config = mgr.config['base_image']
         mgr.pull_image(config['repo'], config['tags'])
 
         config = mgr.config['image']
@@ -201,6 +210,9 @@ class AllController(cement.Controller):
     @cement.ex(help='Remove base image, image, and containers')
     def remove(self):
         mgr = wc_env_manager.core.WcEnvManager({'verbose': VERBOSE})
+
+        config = mgr.config['base_image']
+        mgr.remove_image(config['repo_unsquashed'], config['tags'], force=True)
 
         config = mgr.config['base_image']
         mgr.remove_image(config['repo'], config['tags'], force=True)
