@@ -38,7 +38,7 @@ Second, set the configuration for the containers created by *wc_env_manager* by 
                         bind = /root/.wc
                         mode = rw
 
-    * Configure the WC modeling packages that should be installed into *wc_env*. This should be specified in the pip requirements.txt format and should be specified in terms of paths within the container. The following example illustrates how to create editable installations of clones of *wc_lang* and *wc_utils* mounted from the host into the container.::
+    * Configure the WC modeling packages that should be installed into *wc_env*. This should be specified in the *pip* requirements.txt format and should be specified in terms of paths within the container. The following example illustrates how to create editable installations of clones of *wc_lang* and *wc_utils* mounted from the host into the container.::
 
         [wc_env_manager]
             [[container]]
@@ -47,7 +47,7 @@ Second, set the configuration for the containers created by *wc_env_manager* by 
                     -e /root/host/Documents/wc_utils
                     '''
 
-    * Configure environment variables that should be set in the Docker container. The following example illustrates how to set the ``PYTHONPATH`` environment variable to the paths to *wc_lang* and *wc_sim*. Note, we recommend using pip to manipulate the Python path rather than directly manipulating the ``PYTHONPATH`` environment variable. We only recommend manipulating the ``PYTHONPATH`` environment variable for packages that don't have ``setup.py`` scripts or for packages that ``setup.py`` scripts that you temporarily don't want to run.::
+    * Configure environment variables that should be set in the Docker container. The following example illustrates how to set the ``PYTHONPATH`` environment variable to the paths to *wc_lang* and *wc_sim*. Note, we recommend using *pip* to manipulate the Python path rather than directly manipulating the ``PYTHONPATH`` environment variable. We only recommend manipulating the ``PYTHONPATH`` environment variable for packages that don't have ``setup.py`` scripts or for packages that ``setup.py`` scripts that you temporarily don't want to run.::
 
         [wc_env_manager]
             [[container]]
@@ -59,20 +59,31 @@ Third, use the following command to use *wc_env* to construct a Docker container
 
   wc_env_manager container build
 
-This will print out the id of the created container.
+This will print out the id of the container that is built.
 
 
 Using containers to run WC models and WC modeling tools
 -------------------------------------------------------
 
-Fourth, use the following command to log in the container.::
+Fourth, use the following command to execute the container. It launches the container, and runs an interactive
+*bash* shell that runs commands inside the container.::
 
-  docker exec -it <container_id>
+  docker exec --interactive --tty <container_id> bash
 
 Fifth, use the integrated WC modeling command line program, `*wc* <https://github.com/KarrLab/wc>`_, to run WC models and WC modeling tools. For example, the following command illustrates how to get help for the *wc* program. See the `*wc* documentation <https://docs.karrlab.org/wc>`_ for more information.::
 
   container >> wc --help
 
+Using containers to develop WC models and WC modeling tools
+-----------------------------------------------------------
+
+Sixth, use any other command line program inside the container -- such as *python*, *coverage* and *pytest* -- to
+run or analyze WC tools and models. These are accessible via
+the host paths of directories that were mounted as volumes into the containers and/or repositories installed by *pip*.
+
+Seventh, stop the container by exiting it with *exit* or control-d. The container can be restarted by the *docker exec ...*
+command above. Unfortunately, local changes to the container, such as modifications to files that are not shared with
+the host or changes to the *bash* environment, cannot be saved and then restored when the container is restarted.
 
 Using WC modeling computing environments with an external IDE such as PyCharm
 -----------------------------------------------------------------------------
