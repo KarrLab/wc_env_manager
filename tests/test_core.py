@@ -27,6 +27,8 @@ import wc_env_manager.core
 import whichcraft
 import yaml
 
+RUN_LONG_TESTS = False
+
 
 @unittest.skipIf(whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
 class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
@@ -618,7 +620,7 @@ class WcEnvHostTestCase(unittest.TestCase):
             self.assertEqual(capture_output.get_text(), 'here')
 
 
-@unittest.skipIf(whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
+@unittest.skipIf(not RUN_LONG_TESTS or whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
 class FullWcEnvTestCase(unittest.TestCase):
     def setUp(self):
         self.mgr = mgr = wc_env_manager.core.WcEnvManager()
