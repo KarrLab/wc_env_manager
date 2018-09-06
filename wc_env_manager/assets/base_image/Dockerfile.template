@@ -10,49 +10,50 @@ FROM ubuntu
 RUN groupadd -r -g 999 container_user \
     && useradd -m -r -u 999 -g container_user container_user
 
-# update apt packages
-RUN apt-get update -y
-
 # set time zone
 ARG timezone=America/New_York
-RUN apt-get install -y --no-install-recommends tzdata \
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends tzdata \
     && ln -fs /usr/share/zoneinfo/$timezone /etc/localtime \
-    && dpkg-reconfigure -f noninteractive tzdata
+    && dpkg-reconfigure -f noninteractive tzdata \
+    && rm -rf /var/lib/apt/lists/*
 
 # install apt packages
-RUN apt-get install -y --no-install-recommends \
-    build-essential \
-    ca-certificates \
-    cmake \
-    default-jre \
-    enchant \
-    git \
-    graphviz \
-    gzip \
-    locales \
-    libbz2-dev \
-    libcairo2-dev \
-    libeigen3-dev \
-    libffi6 \
-    libffi-dev \
-    libglpk-dev \
-    libjpeg-dev \
-    libmysqlclient-dev \
-    libmysqld-dev \
-    libsqlite3-dev \
-    libssl-dev \
-    libxml2-dev \
-    mercurial \
-    openssl \
-    pandoc \
-    ssh \
-    sudo \
-    swig \
-    tar \
-    tk8.5-dev \
-    wget \
-    zip \
-    zlib1g-dev
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        cmake \
+        default-jre \
+        enchant \
+        git \
+        graphviz \
+        gzip \
+        locales \
+        libbz2-dev \
+        libcairo2-dev \
+        libeigen3-dev \
+        libffi6 \
+        libffi-dev \
+        libglpk-dev \
+        libjpeg-dev \
+        libmysqlclient-dev \
+        libmysqld-dev \
+        libsqlite3-dev \
+        libssl-dev \
+        libxml2-dev \
+        mercurial \
+        openssl \
+        pandoc \
+        ssh \
+        sudo \
+        swig \
+        tar \
+        tk8.5-dev \
+        wget \
+        zip \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # set locale
 RUN locale-gen en_US.UTF-8
@@ -62,7 +63,9 @@ ENV LC_ALL=en_US.UTF-8
 ARG python_version=3.6.5
 ARG python_version_major_minor=3.6
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib
-RUN apt-get install -y --no-install-recommends tk-dev \
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends tk-dev \
+    && rm -rf /var/lib/apt/lists/* \
     \
     && cd /tmp \
     && wget https://www.python.org/ftp/python/${python_version}/Python-${python_version}.tgz -O /tmp/Python-${python_version}.tgz \
@@ -117,8 +120,11 @@ RUN cd /tmp \
 ARG gurobi_version=8.0.1
 ARG gurobi_license={{ gurobi_license }}
 COPY install_gurobi.exp /tmp/
-RUN cd /tmp \
+RUN apt-get update -y \
     && apt-get install -y --no-install-recommends expect \
+    && rm -rf /var/lib/apt/lists/* \
+    \
+    && cd /tmp \
     && gurobi_version_major=$(echo $gurobi_version | cut -d "." -f 1,2) \
     && gurobi_version_nodot=$(echo $gurobi_version | sed 's/\.//g') \
     && wget http://packages.gurobi.com/${gurobi_version_major}/gurobi${gurobi_version}_linux64.tar.gz \
@@ -244,6 +250,7 @@ ENV COIN_INSTALL_DIR=/opt/coin-or/cbc \
 {% if minos_license -%}
 ARG minos_version=5.6
 RUN cd /tmp \
+    && apt-get update -y \
     && apt-get install -y --no-install-recommends \
         csh \
         gfortran \
@@ -281,7 +288,8 @@ RUN cd /tmp \
     && rm -r solvemepy \
     && apt-get remove -y \
         csh \
-        gfortran
+        gfortran \
+    && rm -rf /var/lib/apt/lists/*
 {%- endif %}
 
 # SoPlex
@@ -301,6 +309,7 @@ RUN cd /tmp \
     && rm -r soplex-${soplex_version}  \
     && rm soplex-${soplex_version}.tgz  \
     \
+    && apt-get update -y \
     && apt-get install -y --no-install-recommends \
         libgmp-dev \
     && pip${python_version_major_minor} install cython \
@@ -310,7 +319,8 @@ RUN cd /tmp \
     && wget http://soplex.zib.de/download/release/soplex-${soplex_version}.tgz \
     && pip${python_version_major_minor} install . \
     && cd /tmp \
-    && rm -r soplex_cython
+    && rm -r soplex_cython \
+    && rm -rf /var/lib/apt/lists/*
 {%- endif %}
 
 # kallisto
@@ -323,7 +333,7 @@ RUN cd /tmp \
     && rm -rf kallisto_linux-v${kallisto_version}.tar.gz
 
 # Docker
-# RUN apt-get update \
+# RUN apt-get update -y \
 #     && apt-get install -y --no-install-recommends \
 #         apt-transport-https \
 #         ca-certificates \
@@ -334,8 +344,9 @@ RUN cd /tmp \
 #         "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
 #         $(lsb_release -cs) \
 #         stable" \
-#     && apt-get update \
-#     && apt-get install -y --no-install-recommends docker-ce
+#     && apt-get update -y \
+#     && apt-get install -y --no-install-recommends docker-ce \
+#     && rm -rf /var/lib/apt/lists/*
 
 # CircleCI local build agent
 # RUN curl -o /usr/local/bin/circleci https://circle-downloads.s3.amazonaws.com/releases/build_agent_wrapper/circleci \
@@ -366,10 +377,19 @@ RUN pip${python_version_major_minor} install ete3 \
 ARG image_tag={{ image_tag }}
 RUN echo ${image_tag} > /etc/docker-image-tag
 
+# install debugging utilities
+# RUN apt-get update -y \
+#    && apt-get install -y --no-install-recommends \
+#       nano \
+#       postgresql \
+#       snapd \
+#    && snap install pycharm-commun ity --classic \
+#    && rm -rf /var/lib/apt/lists/*
+
 # cleanup
 # RUN apt-get remove -y \
-#     cmake
-RUN rm -rf /var/lib/apt/lists/*
+#       cmake
+#    && rm -rf /var/lib/apt/lists/*
 
 # final command
 CMD bash
