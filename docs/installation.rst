@@ -7,6 +7,7 @@ First, install the following requirements. Detailed installation instructions ar
 
 * `git <https://git-scm.com/downloads>`_
 * `Docker <https://docs.docker.com/install>`_
+* `Docker Compose <https://docs.docker.com/compose/install/>`_
 * `Pip <https://pypi.org/project/pip/>`_ >= 10.0.1
 * `Python <https://www.python.org/downloads>`_ >= 3.5
 

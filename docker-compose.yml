@@ -1,0 +1,14 @@
+version: '3'
+services:  
+  postgres:
+    image: postgres:alpine
+    environment:
+      POSTGRES_USER: 'postgres'
+      POSTGRES_DB: 'postgres'
+    restart: always
+
+  wc_env:
+    image: karrlab/wc_env:latest
+    restart: always
+    stdin_open: true
+    tty: true

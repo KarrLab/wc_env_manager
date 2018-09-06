@@ -68,7 +68,9 @@ Using containers to run WC models and WC modeling tools
 Fourth, use the following command to execute the container. It launches the container, and runs an interactive
 *bash* shell that runs commands inside the container.::
 
-  docker exec --interactive --tty <container_id> bash
+  cd /path/to/wc_env_manager
+  docker-compose up -d
+  docker-compose exec wc_env bash
 
 Fifth, use the integrated WC modeling command line program, `*wc* <https://github.com/KarrLab/wc>`_, to run WC models and WC modeling tools. For example, the following command illustrates how to get help for the *wc* program. See the `*wc* documentation <https://docs.karrlab.org/wc>`_ for more information.::
 
