@@ -124,12 +124,14 @@ class WcEnvManager(object):
         with open(template_dockerfile_name) as file:
             template = jinja2.Template(file.read())
 
+        build_args = copy.copy(config['build_args'])
+        build_args['image_tag'] = config['tags'][1]
         dockerfile_path = os.path.join(temp_dir_name, 'Dockerfile')
-        template.stream(**config['build_args']).dump(dockerfile_path)
+        template.stream(**build_args).dump(dockerfile_path)
 
         # build image
         image_unsquashed = self._build_image(config['repo_unsquashed'], config['tags'], dockerfile_path,
-                                             config['build_args'], temp_dir_name,
+                                             build_args, temp_dir_name,
                                              pull_base_image=True)
         self._base_image_unsquashed = image_unsquashed
 

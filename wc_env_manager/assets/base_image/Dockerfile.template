@@ -359,7 +359,12 @@ RUN pip${python_version_major_minor} install -U pip setuptools \
 
 # Install NCBI taxonomy database and ETE3 package
 RUN pip${python_version_major_minor} install ete3 \
-    && python${python_version_major_minor} -c "import ete3; ete3.NCBITaxa().get_descendant_taxa('Homo');"
+    && python${python_version_major_minor} -c "import ete3; ete3.NCBITaxa().get_descendant_taxa('Homo');" \
+    && rm /taxdump.tar.gz
+
+# Save image tag to file so it is accessible from within containers
+ARG image_tag={{ image_tag }}
+RUN echo ${image_tag} > /etc/docker-image-tag
 
 # cleanup
 # RUN apt-get remove -y \
