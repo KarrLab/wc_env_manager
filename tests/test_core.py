@@ -458,6 +458,8 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
         temp_dir_name = tempfile.mkdtemp()
         git.Repo.clone_from('https://github.com/KarrLab/wc_utils.git',
                             os.path.join(temp_dir_name, 'wc_utils'))
+        git.Repo.clone_from('https://github.com/KarrLab/wc_kb.git',
+                            os.path.join(temp_dir_name, 'wc_kb'))
         mgr.config['container']['paths_to_mount'] = {
             temp_dir_name: {
                 'bind': '/root/host/Documents',
@@ -467,6 +469,7 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
         mgr.config['container']['python_packages'] = '''
         /root/host/Documents/wc_utils
+        -e /root/host/Documents/wc_kb
         '''
 
         mgr.build_container()
@@ -476,6 +479,7 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
         self.assertRegex(text, r'Processing /root/host/Documents/wc_utils')
         self.assertRegex(text, r'Successfully installed .*?wc-utils-')
 
+        mgr.run_process_in_container(['rm', '-r', '/root/host/Documents/wc_kb/wc_kb.egg-info'])
         shutil.rmtree(temp_dir_name)
 
     def test_setup_container_with_python_packages(self):

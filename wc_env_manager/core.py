@@ -378,7 +378,6 @@ class WcEnvManager(object):
                 pull=pull_base_image,
                 buildargs=build_args,
                 rm=True,
-                squash=True,
             )
         except requests.exceptions.ConnectionError as exception:
             raise WcEnvManagerError("Docker connection error: service must be running:\n  {}".format(
@@ -585,26 +584,23 @@ class WcEnvManager(object):
             process_dependency_links (:obj:`bool`, optional): if :obj:`True`, install packages from provided
                 URLs
         """
-        # save requirements to temporary file on host
-        file, host_temp_filename = tempfile.mkstemp(suffix='.txt')
-        os.write(file, self.config['container']['python_packages'].encode('utf-8'))
-        os.close(file)
+        lines = self.config['container']['python_packages'].split('\n')
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith('#'):
+                cmd = ['pip{}'.format(self.config['image']['python_version']), 'install']
 
-        # copy requirements to temporary file in container
-        container_temp_filename, _ = self.run_process_in_container('mktemp', container_user=WcEnvUser.root)
-        self.copy_path_to_container(host_temp_filename, container_temp_filename)
+                if line.startswith('-e '):
+                    cmd += ['-e', line[3:].strip()]
+                else:
+                    cmd += [line]
 
-        # install requirements
-        cmd = ['pip{}'.format(self.config['image']['python_version']), 'install', '-r', container_temp_filename]
-        if upgrade:
-            cmd.append('-U')
-        if process_dependency_links:
-            cmd.append('--process-dependency-links')
-        self.run_process_in_container(cmd, container_user=WcEnvUser.root)
+                if upgrade:
+                    cmd.append('-U')
+                if process_dependency_links:
+                    cmd.append('--process-dependency-links')
 
-        # remove temporary files
-        os.remove(host_temp_filename)
-        self.run_process_in_container(['rm', container_temp_filename], container_user=WcEnvUser.root)
+                self.run_process_in_container(cmd, container_user=WcEnvUser.root)
 
     def copy_path_to_container(self, local_path, container_path, overwrite=True, container_user=WcEnvUser.root):
         """ Copy file or directory to Docker container
