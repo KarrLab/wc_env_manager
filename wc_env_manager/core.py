@@ -253,7 +253,9 @@ class WcEnvManager(object):
         for req in reqs:
             keep = True
             for u_req in unique_reqs:
-                if req in u_req:
+                pkg_name = re.split('(==|>|<| |;)', req)[0].strip()
+                u_pkg_name = re.split('(==|>|<| |;)', u_req)[0].strip()
+                if pkg_name == u_pkg_name and u_req.startswith(req):
                     keep = False
                     break
             if keep:

@@ -14,64 +14,66 @@ RUN groupadd -r -g 999 container_user \
 ARG timezone=America/New_York
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends tzdata \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/* \
     && ln -fs /usr/share/zoneinfo/$timezone /etc/localtime \
-    && dpkg-reconfigure -f noninteractive tzdata \
-    && rm -rf /var/lib/apt/lists/*
-
-# install apt packages
-RUN apt-get update -y \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        ca-certificates \
-        cmake \
-        default-jre \
-        enchant \
-        git \
-        graphviz \
-        gzip \
-        locales \
-        libbz2-dev \
-        libcairo2-dev \
-        libeigen3-dev \
-        libffi6 \
-        libffi-dev \
-        libglpk-dev \
-        libjpeg-dev \
-        libmysqlclient-dev \
-        libmysqld-dev \
-        libsqlite3-dev \
-        libssl-dev \
-        libxml2-dev \
-        mercurial \
-        openssl \
-        pandoc \
-        ssh \
-        sudo \
-        swig \
-        tar \
-        tk8.5-dev \
-        wget \
-        zip \
-        zlib1g-dev \
-    && rm -rf /var/lib/apt/lists/*
+    && dpkg-reconfigure -f noninteractive tzdata
 
 # set locale
-RUN locale-gen en_US.UTF-8
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        locales \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && locale-gen en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
+
+# install utilities: Git, SSH
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        git \
+        ssh \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 
 # install Python
 ARG python_version=3.6.5
 ARG python_version_major_minor=3.6
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib
 RUN apt-get update -y \
-    && apt-get install -y --no-install-recommends tk-dev \
-    && rm -rf /var/lib/apt/lists/* \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        libbz2-dev \
+        libexpat1 \
+        libexpat1-dev \
+        libffi-dev \
+        libffi6 \
+        libreadline-dev \
+        libsqlite3-dev \
+        libssl-dev \
+        tar \
+        tk-dev \
+        wget \
+        zlib1g-dev \
+        # libdb5.3-dev # Berkeley DB \
+        # libgdbm-dev # GNU dbm database \
+        # liblzma-dev # LZMA compression \
+        # libncursesw-dev # text-based user interfaces \
+        # libtinfo-dev # terminal information \
+        # mime-support # MIME support \
     \
     && cd /tmp \
     && wget https://www.python.org/ftp/python/${python_version}/Python-${python_version}.tgz -O /tmp/Python-${python_version}.tgz \
     && tar xzf /tmp/Python-${python_version}.tgz \
     && cd /tmp/Python-${python_version} \
-    && ./configure --prefix=/usr/local --enable-optimizations --enable-shared --enable-unicode=ucs4 \
+    && ./configure \
+        --prefix=/usr/local \
+        --enable-optimizations \
+        --enable-shared \
+        --enable-unicode=ucs4 \
+        --with-system-expat \
+        --with-system-ffi \
     && make \
     # && make test \
     && make install \
@@ -79,11 +81,46 @@ RUN apt-get update -y \
     && python${python_version_major_minor} -m ensurepip \
     && cd / \
     && rm -r /tmp/Python-${python_version}.tgz \
-    && rm -r /tmp/Python-${python_version}
+    && rm -r /tmp/Python-${python_version} \
+    \
+    && apt-get remove -y \
+        build-essential \
+        ca-certificates \
+        libbz2-dev \
+        libexpat1-dev \
+        libffi-dev \
+        libreadline-dev \
+        libsqlite3-dev \
+        libssl-dev \
+        tk-dev \
+        wget \
+        zlib1g-dev \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# Java
+{% if java_install -%}
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        default-jre \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+{%- endif %}
 
 # install openbabel
+{% if openbabel_install -%}
 ARG openbabel_version=2.4.1
-RUN cd /tmp \
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        cmake \
+        libcairo2-dev \
+        libeigen3-dev \
+        libxml2-dev \
+        tar \
+        wget \
+        zlib1g-dev \
+    \
+    && cd /tmp \
     && openbabel_version_dash=$(echo $openbabel_version | sed 's/\./-/g') \
     && wget https://github.com/openbabel/openbabel/archive/openbabel-${openbabel_version_dash}.tar.gz -O /tmp/openbabel-${openbabel_version}.tar.gz \
     && tar -xvvf /tmp/openbabel-${openbabel_version}.tar.gz \
@@ -97,32 +134,55 @@ RUN cd /tmp \
     && ldconfig \
     && cd / \
     && rm -r /tmp/openbabel-${openbabel_version}.tar.gz \
-    && rm -r /tmp/openbabel-openbabel-${openbabel_version_dash}
+    && rm -r /tmp/openbabel-openbabel-${openbabel_version_dash} \
+    \
+    && apt-get remove -y \
+        cmake \
+        libcairo2-dev \
+        libeigen3-dev \
+        libxml2-dev \
+        wget \
+        zlib1g-dev \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+{%- endif %}
 
 # install cplex
-{% if cplex_license -%}
+{% if cplex_install -%}
 ARG cplex_version=12.8.0
 ARG cplex_version_major_minor_nodot=128
 COPY cplex_studio${cplex_version_major_minor_nodot}.linux-x86-64.bin /tmp/
 COPY cplex.installer.properties /tmp/
-RUN cd /tmp \
-    && ./cplex_studio${cplex_version_major_minor_nodot}.linux-x86-64.bin -f /tmp/cplex.installer.properties \
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        unzip \
+    \
+    && cd /tmp \
+    && ./cplex_studio${cplex_version_major_minor_nodot}.linux-x86-64.bin \
+        -f /tmp/cplex.installer.properties \
     \
     && cd /opt/ibm/ILOG/CPLEX_Studio${cplex_version_major_minor_nodot}/cplex/python/3.6/x86-64_linux/ \
     && pip${python_version_major_minor} install . \
     \
     && rm /tmp/cplex_studio${cplex_version_major_minor_nodot}.linux-x86-64.bin \
-    && rm /tmp/cplex.installer.properties
+    && rm /tmp/cplex.installer.properties \
+    \
+    && apt-get remove -y \
+        unzip \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 {%- endif %}
 
 # install gurobi
-{% if gurobi_license -%}
+{% if gurobi_install -%}
 ARG gurobi_version=8.0.1
 ARG gurobi_license={{ gurobi_license }}
 COPY install_gurobi.exp /tmp/
 RUN apt-get update -y \
-    && apt-get install -y --no-install-recommends expect \
-    && rm -rf /var/lib/apt/lists/* \
+    && apt-get install -y --no-install-recommends \
+        expect \
+        tar \
+        wget \
     \
     && cd /tmp \
     && gurobi_version_major=$(echo $gurobi_version | cut -d "." -f 1,2) \
@@ -135,7 +195,12 @@ RUN apt-get update -y \
     && python${python_version_major_minor} setup.py install \
     && rm /tmp/gurobi${gurobi_version}_linux64.tar.gz \
     && rm /tmp/install_gurobi.exp \
-    && apt-get remove -y expect
+    \
+    && apt-get remove -y \
+        expect \
+        wget \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 ARG gurobi_version_nodot=800
 ENV GUROBI_HOME=/opt/gurobi${gurobi_version_nodot}/linux64 \
     PATH="${PATH}:${GUROBI_HOME}/bin" \
@@ -143,10 +208,15 @@ ENV GUROBI_HOME=/opt/gurobi${gurobi_version_nodot}/linux64 \
 {%- endif %}
 
 # install mosek
-{% if mosek_license -%}
+{% if mosek_install -%}
 ARG mosek_version=8.1.0.58
 COPY {{ mosek_license }} /tmp/
-RUN cd /tmp \
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        tar \
+        wget \
+    \
+    && cd /tmp \
     && mosek_version_major=$(echo $mosek_version | cut -d "." -f 1,1) \
     && wget https://d2i6rjz61faulo.cloudfront.net/stable/${mosek_version}/mosektoolslinux64x86.tar.bz2 \
     && tar -xvvf mosektoolslinux64x86.tar.bz2 \
@@ -156,18 +226,27 @@ RUN cd /tmp \
     && cd /opt/mosek/8/tools/platform/linux64x86/python/3/ \
     && python${python_version_major_minor} setup.py install \
     && rm /tmp/mosektoolslinux64x86.tar.bz2 \
-    && rm ${HOME}/mosek/{{ mosek_license }}
+    && rm ${HOME}/mosek/{{ mosek_license }} \
+    && apt-get remove -y \
+        wget \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 ENV PATH="${PATH}:/opt/mosek/${mosek_version_major}/tools/platform/linux64x86/bin" \
     LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/opt/mosek/${mosek_version_major}/tools/platform/linux64x86/bin"
 {%- endif %}
 
 # install xpress
-{% if xpress_license -%}
+{% if xpress_install -%}
 ARG xpress_version=8.5.3
 ARG xpress_license_server={{ xpress_license_server }}
 COPY {{ xpress_license }} /tmp/
 COPY xpress.egg-info /tmp/
-RUN cd /tmp \
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        tar \
+        wget \
+    \
+    && cd /tmp \
     && wget https://clientarea.xpress.fico.com/downloads/${xpress_version}/xp${xpress_version}_linux_x86_64_setup.tar \
     && mkdir xp${xpress_version}_linux_x86_64_setup \
     && tar -xvvf xp${xpress_version}_linux_x86_64_setup.tar -C xp${xpress_version}_linux_x86_64_setup \
@@ -180,7 +259,12 @@ RUN cd /tmp \
     && rm -r /tmp/xp${xpress_version}_linux_x86_64_setup \
     && rm /tmp/{{ xpress_license }} \
     && rm /tmp/xpress.egg-info \
-    && rm /opt/xpressmp/bin/{{ xpress_license }}
+    && rm /opt/xpressmp/bin/{{ xpress_license }} \
+    \
+    && apt-get remove -y \
+        wget \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 ENV XPRESSDIR=/opt/xpressmp \
     PATH=$PATH:$XPRESSDIR/bin \
     LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/lib/x86_64-linux-gnu:$XPRESSDIR/lib \
@@ -189,8 +273,15 @@ ENV XPRESSDIR=/opt/xpressmp \
 {%- endif %}
 
 # COIN-OR: CBC (latest version compatible with CyLP)
+{% if cbc_install -%}
 ARG cbc_version=2.8.5
-RUN cd /tmp \
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        tar \
+        wget \
+    \
+    && cd /tmp \
     && wget https://www.coin-or.org/download/source/Cbc/Cbc-${cbc_version}.tgz \
     && tar -xvvf Cbc-${cbc_version}.tgz \
     && cd Cbc-${cbc_version} \
@@ -203,57 +294,96 @@ RUN cd /tmp \
     && make install \
     && cd ../../ \
     && rm -r Cbc-${cbc_version} \
-    && rm Cbc-${cbc_version}.tgz
+    && rm Cbc-${cbc_version}.tgz \
+    \
+    && apt-get remove -y \
+        build-essential \
+        wget \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 ENV COIN_INSTALL_DIR=/opt/coin-or/cbc \
     PATH=${PATH}:/opt/coin-or/cbc/bin \
     LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/coin-or/cbc/lib
+{%- endif %}
 
-# # COIN-OR: coinutils
-# ARG coin_utils_version=2.10.14
-# RUN cd /tmp \
-#     && wget https://www.coin-or.org/download/source/CoinUtils/CoinUtils-${coin_utils_version}.tgz \
-#     && tar -xvvf CoinUtils-${coin_utils_version}.tgz \
-#     && cd CoinUtils-${coin_utils_version} \
-#     && mkdir build \
-#     && cd build \
-#     && mkdir -p /opt/coin-or/coinutils \
-#     && ../configure -C --prefix=/opt/coin-or/coinutils --enable-gnu-packages \
-#     && make \
-#     # && make test \
-#     && make install \
-#     && cd /tmp \
-#     && rm -r CoinUtils-${coin_utils_version} \
-#     && rm CoinUtils-${coin_utils_version}.tgz
-# ENV PATH=${PATH}:/opt/coin-or/coinutils/bin \
-#     LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/coin-or/coinutils/lib
-#
-# # install qpOASES
-# ARG qpoases_version=3.2.1
-# RUN cd /tmp \
-#     && wget https://www.coin-or.org/download/source/qpOASES/qpOASES-${qpoases_version}.tgz \
-#     && tar -xvvf qpOASES-${qpoases_version}.tgz \
-#     && cd qpOASES-${qpoases_version} \
-#     && make \
-#     # && make test \
-#     && mkdir -p /opt/coin-or/qpoases/lib \
-#     && cp bin/libqpOASES.* /opt/coin-or/qpoases/lib \
-#     && cp -r include/ /opt/coin-or/qpoases \
-#     && cd interfaces/python \
-#     && pip${python_version_major_minor} install cython numpy \
-#     && python${python_version_major_minor} setup.py install \
-#     && cd /tmp \
-#     && rm -r qpOASES-${qpoases_version} \
-#     && rm qpOASES-${qpoases_version}.tgz
-# ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/coin-or/qpoases/lib
+# COIN-OR: coinutils
+{% if coin_utils_install -%}
+ARG coin_utils_version=2.10.14
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+       build-essential \
+       tar \
+       wget \
+    \
+    && cd /tmp \
+    && wget https://www.coin-or.org/download/source/CoinUtils/CoinUtils-${coin_utils_version}.tgz \
+    && tar -xvvf CoinUtils-${coin_utils_version}.tgz \
+    && cd CoinUtils-${coin_utils_version} \
+    && mkdir build \
+    && cd build \
+    && mkdir -p /opt/coin-or/coinutils \
+    && ../configure -C --prefix=/opt/coin-or/coinutils --enable-gnu-packages \
+    && make \
+    # && make test \
+    && make install \
+    && cd /tmp \
+    && rm -r CoinUtils-${coin_utils_version} \
+    && rm CoinUtils-${coin_utils_version}.tgz \
+    \
+    && apt-get remove -y \
+       build-essential \
+       wget \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+ENV PATH=${PATH}:/opt/coin-or/coinutils/bin \
+    LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/coin-or/coinutils/lib
+{%- endif %}
+
+# install qpOASES
+{% if qpoases_install -%}
+ARG qpoases_version=3.2.1
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+      build-essential \
+      tar \
+      wget \
+    \
+    && cd /tmp \
+    && wget https://www.coin-or.org/download/source/qpOASES/qpOASES-${qpoases_version}.tgz \
+    && tar -xvvf qpOASES-${qpoases_version}.tgz \
+    && cd qpOASES-${qpoases_version} \
+    && make \
+    # && make test \
+    && mkdir -p /opt/coin-or/qpoases/lib \
+    && cp bin/libqpOASES.* /opt/coin-or/qpoases/lib \
+    && cp -r include/ /opt/coin-or/qpoases \
+    && cd interfaces/python \
+    && pip${python_version_major_minor} install cython numpy \
+    && python${python_version_major_minor} setup.py install \
+    && cd /tmp \
+    && rm -r qpOASES-${qpoases_version} \
+    && rm qpOASES-${qpoases_version}.tgz \
+    \
+    && apt-get remove -y \
+      build-essential \
+      wget \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/coin-or/qpoases/lib
+{%- endif %}
 
 # MINOS
-{% if minos_license -%}
+{% if minos_install -%}
 ARG minos_version=5.6
 RUN cd /tmp \
     && apt-get update -y \
     && apt-get install -y --no-install-recommends \
         csh \
         gfortran \
+        git \
+        wget \
+        unzip \
+    \
     && pip${python_version_major_minor} install numpy \
     && wget http://stanford.edu/~saunders/tmp/quadLP.zip \
     && unzip quadLP.zip \
@@ -286,16 +416,26 @@ RUN cd /tmp \
     && rm -r quadLP  \
     && rm quadLP.zip \
     && rm -r solvemepy \
+    \
     && apt-get remove -y \
         csh \
         gfortran \
+        wget \
+        unzip \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 {%- endif %}
 
 # SoPlex
-{% if soplex_license -%}
+{% if soplex_install -%}
 ARG soplex_version=3.1.1
-RUN cd /tmp \
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        cmake \
+        tar \
+        wget \
+    \
+    && cd /tmp \
     && wget http://soplex.zib.de/download/release/soplex-${soplex_version}.tgz \
     && tar -xvvf soplex-${soplex_version}.tgz \
     && cd soplex-${soplex_version} \
@@ -309,9 +449,9 @@ RUN cd /tmp \
     && rm -r soplex-${soplex_version}  \
     && rm soplex-${soplex_version}.tgz  \
     \
-    && apt-get update -y \
     && apt-get install -y --no-install-recommends \
         libgmp-dev \
+    \
     && pip${python_version_major_minor} install cython \
     && cd /tmp \
     && git clone https://github.com/SBRG/soplex_cython.git \
@@ -320,41 +460,73 @@ RUN cd /tmp \
     && pip${python_version_major_minor} install . \
     && cd /tmp \
     && rm -r soplex_cython \
+    \
+    && apt-get remove -y \
+        cmake \
+        libgmp-dev \
+        wget \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 {%- endif %}
 
 # kallisto
+{% if kallisto_install -%}
 ARG kallisto_version=0.44.0
-RUN cd /tmp \
+RUN apt-get install -y --no-install-recommends \
+        tar \
+        wget \
+    \
+    && cd /tmp \
     && wget https://github.com/pachterlab/kallisto/releases/download/v${kallisto_version}/kallisto_linux-v${kallisto_version}.tar.gz \
     && tar -xvvf kallisto_linux-v${kallisto_version}.tar.gz \
     && cp kallisto_linux-v${kallisto_version}/kallisto /usr/local/bin \
     && rm -rf kallisto_linux-v${kallisto_version} \
-    && rm -rf kallisto_linux-v${kallisto_version}.tar.gz
+    && rm -rf kallisto_linux-v${kallisto_version}.tar.gz \
+    \
+    && apt-get remove -y \
+        wget \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+{%- endif %}
 
 # Docker
-# RUN apt-get update -y \
-#     && apt-get install -y --no-install-recommends \
-#         apt-transport-https \
-#         ca-certificates \
-#         curl \
-#         software-properties-common \
-#     && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add - \
-#     && add-apt-repository \
-#         "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-#         $(lsb_release -cs) \
-#         stable" \
-#     && apt-get update -y \
-#     && apt-get install -y --no-install-recommends docker-ce \
-#     && rm -rf /var/lib/apt/lists/*
+{% if docker_install -%}
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        apt-transport-https \
+        ca-certificates \
+        curl \
+        software-properties-common \
+    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - \
+    && add-apt-repository \
+        "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+        $(lsb_release -cs) \
+        stable" \
+    \
+    && apt-get update -y \
+    && apt-get install -y --no-install-recommends docker-ce \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+{%- endif %}
 
 # CircleCI local build agent
-# RUN curl -o /usr/local/bin/circleci https://circle-downloads.s3.amazonaws.com/releases/build_agent_wrapper/circleci \
-#     && chmod +x /usr/local/bin/circleci
+{% if circleci_install -%}
+RUN curl -o /usr/local/bin/circleci https://circle-downloads.s3.amazonaws.com/releases/build_agent_wrapper/circleci \
+    && chmod +x /usr/local/bin/circleci
+{%- endif %}
 
 # Install Python packages; pbr has to be installed first to workaround error in sphinxcontrib-spelling installation
 COPY requirements.txt /tmp/
-RUN pip${python_version_major_minor} install -U pip setuptools \
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        default-libmysqlclient-dev \
+        enchant \
+        graphviz \
+        pandoc \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/* \
+    \
+    && pip${python_version_major_minor} install -U pip setuptools \
     && pip${python_version_major_minor} install -U \
         cython \
         ipython \
@@ -383,13 +555,14 @@ RUN echo ${image_tag} > /etc/docker-image-tag
 #       nano \
 #       postgresql \
 #       snapd \
-#    && snap install pycharm-commun ity --classic \
+#    && snap install pycharm-community --classic \
+#    && apt-get autoremove -y \
 #    && rm -rf /var/lib/apt/lists/*
 
 # cleanup
 # RUN apt-get remove -y \
+#       build-essential \
 #       cmake
-#    && rm -rf /var/lib/apt/lists/*
 
 # final command
 CMD bash

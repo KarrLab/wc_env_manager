@@ -86,6 +86,7 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
     def test_get_required_python_packages(self):
         mgr = self.mgr
         self.mgr.config['image']['python_packages'] = '''
+        git+https://github.com/KarrLab/kinetic_datanator.git#egg=kinetic_datanator-0.0.1[all]
         git+https://github.com/KarrLab/wc_lang.git#egg=wc_lang-0.0.1[all]
         git+https://github.com/KarrLab/wc_utils.git#egg=wc_utils-0.0.1[all]
         git+https://github.com/KarrLab/pkg_utils.git#egg=pkg_utils-0.0.3[all]
@@ -93,6 +94,8 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
         '''
         reqs = mgr.get_required_python_packages()
         self.assertIn('numpy', reqs)
+        self.assertIn('requests', reqs)
+        self.assertIn('requests_cache', reqs)
         self.assertIn('git+https://github.com/KarrLab/log.git#egg=log-2016.10.12', reqs)
         self.assertIn('git+https://github.com/davidfischer/requirements-parser.git#egg=requirements_parser-0.2.0 >= 0.2.0', reqs)
 
@@ -522,7 +525,6 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
         container = mgr.build_container()
         mgr.setup_container()
         output, _ = mgr.run_process_in_container(['bash', '-c', 'echo $PYTHONPATH'])
-        print(output)
         self.assertEqual(output, (
             '/root/host/Documents/package_1:'
             '/root/host/Documents/package_2'
