@@ -6,6 +6,12 @@
 # base
 FROM ubuntu
 
+# upgrade
+RUN apt-get update -y \
+    && apt-get upgrade -y \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create user to run operations in containers
 RUN groupadd -r -g 999 container_user \
     && useradd -m -r -u 999 -g container_user container_user
@@ -14,7 +20,6 @@ RUN groupadd -r -g 999 container_user \
 ARG timezone=America/New_York
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends tzdata \
-    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* \
     && ln -fs /usr/share/zoneinfo/$timezone /etc/localtime \
     && dpkg-reconfigure -f noninteractive tzdata
@@ -23,7 +28,6 @@ RUN apt-get update -y \
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
         locales \
-    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* \
     && locale-gen en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
@@ -33,7 +37,6 @@ RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
         git \
         ssh \
-    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 # install Python
@@ -103,7 +106,6 @@ RUN apt-get update -y \
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
         default-jre \
-    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 {%- endif %}
 
@@ -112,6 +114,7 @@ RUN apt-get update -y \
 ARG openbabel_version=2.4.1
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
+        build-essential \
         cmake \
         libcairo2-dev \
         libeigen3-dev \
@@ -137,6 +140,7 @@ RUN apt-get update -y \
     && rm -r /tmp/openbabel-openbabel-${openbabel_version_dash} \
     \
     && apt-get remove -y \
+        build-essential \
         cmake \
         libcairo2-dev \
         libeigen3-dev \
@@ -227,6 +231,7 @@ RUN apt-get update -y \
     && python${python_version_major_minor} setup.py install \
     && rm /tmp/mosektoolslinux64x86.tar.bz2 \
     && rm ${HOME}/mosek/{{ mosek_license }} \
+    \
     && apt-get remove -y \
         wget \
     && apt-get autoremove -y \
@@ -381,6 +386,7 @@ RUN cd /tmp \
         csh \
         gfortran \
         git \
+        make \
         wget \
         unzip \
     \
@@ -420,6 +426,7 @@ RUN cd /tmp \
     && apt-get remove -y \
         csh \
         gfortran \
+        make \
         wget \
         unzip \
     && apt-get autoremove -y \
@@ -431,6 +438,7 @@ RUN cd /tmp \
 ARG soplex_version=3.1.1
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
+        build-essential \
         cmake \
         tar \
         wget \
@@ -462,6 +470,7 @@ RUN apt-get update -y \
     && rm -r soplex_cython \
     \
     && apt-get remove -y \
+        build-essential \
         cmake \
         libgmp-dev \
         wget \
@@ -472,7 +481,8 @@ RUN apt-get update -y \
 # kallisto
 {% if kallisto_install -%}
 ARG kallisto_version=0.44.0
-RUN apt-get install -y --no-install-recommends \
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
         tar \
         wget \
     \
@@ -505,7 +515,6 @@ RUN apt-get update -y \
     \
     && apt-get update -y \
     && apt-get install -y --no-install-recommends docker-ce \
-    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 {%- endif %}
 
@@ -519,12 +528,12 @@ RUN curl -o /usr/local/bin/circleci https://circle-downloads.s3.amazonaws.com/re
 COPY requirements.txt /tmp/
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
+        build-essential \
         default-libmysqlclient-dev \
         enchant \
         graphviz \
         pandoc \
-    && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/* \
+        swig \
     \
     && pip${python_version_major_minor} install -U pip setuptools \
     && pip${python_version_major_minor} install -U \
@@ -538,7 +547,13 @@ RUN apt-get update -y \
         six \
     && pip${python_version_major_minor} install -U git+https://github.com/jjhelmus/CyLP.git@py3#egg=cylp \
     && pip${python_version_major_minor} install -r /tmp/requirements.txt \
-    && rm tmp/requirements.txt
+    && rm tmp/requirements.txt \
+    \
+    && apt-get remove -y \
+        build-essential \
+        swig \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install NCBI taxonomy database and ETE3 package
 RUN pip${python_version_major_minor} install ete3 \
@@ -556,7 +571,6 @@ RUN echo ${image_tag} > /etc/docker-image-tag
 #       postgresql \
 #       snapd \
 #    && snap install pycharm-community --classic \
-#    && apt-get autoremove -y \
 #    && rm -rf /var/lib/apt/lists/*
 
 # cleanup
