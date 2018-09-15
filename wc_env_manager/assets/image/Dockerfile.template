@@ -17,4 +17,4 @@ RUN pip{{ python_version }} install --process-dependency-links -r {{ requirement
 {%- endif %}
 
 # Set default command
-CMD bash
+ENTRYPOINT ["wc"]

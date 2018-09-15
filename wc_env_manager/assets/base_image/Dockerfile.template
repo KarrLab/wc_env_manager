@@ -578,4 +578,5 @@ RUN echo ${image_tag} > /etc/docker-image-tag
 #       cmake
 
 # final command
+WORKDIR /root
 CMD bash
