@@ -425,7 +425,6 @@ RUN cd /tmp \
     \
     && apt-get remove -y \
         csh \
-        gfortran \
         make \
         wget \
         unzip \
