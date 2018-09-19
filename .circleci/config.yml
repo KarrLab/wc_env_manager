@@ -11,7 +11,7 @@ jobs:
       # Load packages from cache
       - restore_cache:
           keys:
-            - v1-{{ arch }}-{{ .Branch }}-{{ checksum "/etc/docker-image-tag" }}-{{ checksum "requirements.txt" }}
+            - v2-{{ arch }}-{{ .Branch }}-{{ checksum "/etc/docker-image-tag" }}-{{ checksum "requirements.txt" }}
 
       # Python 3 installation tasks
       - run:
@@ -27,18 +27,16 @@ jobs:
           name: Install and upgrade requirements (Python 3)
           command: |
             set +e
-            pwd
             karr_lab_build_utils3 install-requirements
             karr_lab_build_utils3 upgrade-karr-lab-packages
       - run:
           name: Install package (Python 3)
           command: |
-            pwd
             pip3 install -U --process-dependency-links -e .[all]
 
       # Save packages to cache
       - save_cache:
-          key: v1-{{ arch }}-{{ .Branch }}-{{ checksum "/etc/docker-image-tag" }}-{{ checksum "requirements.txt" }}
+          key: v2-{{ arch }}-{{ .Branch }}-{{ checksum "/etc/docker-image-tag" }}-{{ checksum "requirements.txt" }}
           paths:
             - /usr/local/lib/python3.6/site-packages
 
@@ -47,8 +45,6 @@ jobs:
           name: Test code
           command: |
             set +e
-
-            pwd
 
             karr_lab_build_utils3 run-tests --with-xunit --with-coverage
             TEST_EXIT_CODE_PY3=$?
@@ -67,7 +63,6 @@ jobs:
           name: Generate reports, archive results, and send notifications
           when: always
           command: |
-            pwd
             if [[ -f TEST_EXIT_CODE ]]; then
               INSTALLATION_EXIT_CODE=0
               TEST_EXIT_CODE=$(<TEST_EXIT_CODE)
