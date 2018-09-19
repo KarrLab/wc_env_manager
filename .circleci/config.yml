@@ -1,9 +1,9 @@
 version: 2
 jobs:
-  build:
-    working_directory: /root/project
+  build:    
     docker:
       - image: karrlab/wc_env_dependencies:latest
+    working_directory: /root/project
     steps:
       # Clone repository
       - checkout
@@ -27,11 +27,14 @@ jobs:
           name: Install and upgrade requirements (Python 3)
           command: |
             set +e
+            pwd
             karr_lab_build_utils3 install-requirements
             karr_lab_build_utils3 upgrade-karr-lab-packages
       - run:
           name: Install package (Python 3)
-          command: pip3 install -U --process-dependency-links -e .[all]
+          command: |
+            pwd
+            pip3 install -U --process-dependency-links -e .[all]
 
       # Save packages to cache
       - save_cache:
@@ -44,6 +47,8 @@ jobs:
           name: Test code
           command: |
             set +e
+
+            pwd
 
             karr_lab_build_utils3 run-tests --with-xunit --with-coverage
             TEST_EXIT_CODE_PY3=$?
@@ -62,6 +67,7 @@ jobs:
           name: Generate reports, archive results, and send notifications
           when: always
           command: |
+            pwd
             if [[ -f TEST_EXIT_CODE ]]; then
               INSTALLATION_EXIT_CODE=0
               TEST_EXIT_CODE=$(<TEST_EXIT_CODE)
