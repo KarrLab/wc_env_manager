@@ -113,7 +113,19 @@ RUN apt-get update -y \
 {% if postgresql_client_install -%}
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
-        postgresql-client \
+        gnupg \
+        wget \
+    && ubuntu_version=`cat /etc/lsb-release | grep DISTRIB_CODENAME | cut -d "=" -f 2` \
+    && wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
+    && echo "deb http://apt.postgresql.org/pub/repos/apt/ ${ubuntu_version}-pgdg main" >> /etc/apt/sources.list.d/pgdg_${ubuntu_version}.list \
+    && apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        postgresql-client-10 \
+    \
+    && apt-get remove -y \
+        gnupg \
+        wget \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 {%- endif %}
 
