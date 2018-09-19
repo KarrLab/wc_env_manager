@@ -137,7 +137,7 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
         context_path = mgr.config['base_image']['context_path']
 
         mgr.config['base_image']['context_path'] += '.null'
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, ' must be a directory'):
+        with self.assertRaisesRegex(wc_env_manager.WcEnvManagerError, ' must be a directory'):
             mgr._build_image(mgr.config['base_image']['repo_unsquashed'],
                              mgr.config['base_image']['tags'],
                              mgr.config['base_image']['dockerfile_template_path'],
@@ -146,7 +146,7 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
 
         mgr.config['base_image']['context_path'] = context_path
         mgr.config['base_image']['dockerfile_template_path'] = '/Dockerfile'
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, ' must be inside '):
+        with self.assertRaisesRegex(wc_env_manager.WcEnvManagerError, ' must be inside '):
             mgr._build_image(mgr.config['base_image']['repo_unsquashed'],
                              mgr.config['base_image']['tags'],
                              mgr.config['base_image']['dockerfile_template_path'],
@@ -161,7 +161,7 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
         subprocess.check_call(['systemctl', 'stop', 'docker'])
 
         # check for error
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Docker connection error:'):
+        with self.assertRaisesRegex(wc_env_manager.WcEnvManagerError, 'Docker connection error:'):
             mgr.build_base_image()
 
         # restart Docker service
@@ -176,7 +176,7 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
             file.write('CMD bash\n')
 
         # check for error
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Docker API error:'):
+        with self.assertRaisesRegex(wc_env_manager.WcEnvManagerError, 'Docker API error:'):
             mgr.build_base_image()
 
     def test_build_base_image_build_error(self):
@@ -189,7 +189,7 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
             file.write('CMD bash\n')
 
         # check for error
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Docker build error:'):
+        with self.assertRaisesRegex(wc_env_manager.WcEnvManagerError, 'Docker build error:'):
             mgr.build_base_image()
 
     def test_build_base_image_other_error(self):
@@ -197,7 +197,7 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
 
         # introduce typo into Dockerfile
         with mock.patch.object(docker.models.images.ImageCollection, 'build', side_effect=Exception('message')):
-            with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'Exception:\n  message'):
+            with self.assertRaisesRegex(wc_env_manager.WcEnvManagerError, 'Exception:\n  message'):
                 mgr.build_base_image()
 
     def test_remove_image(self):
@@ -386,7 +386,7 @@ class WcEnvManagerDockerHubTestCase(unittest.TestCase):
         mgr = self.mgr
         mgr.config['base_image']['repo'] = 'karrlab/does_not_exist'
         mgr.config['base_image']['tags'] = ['latest']
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'failed'):
+        with self.assertRaisesRegex(wc_env_manager.WcEnvManagerError, 'failed'):
             mgr.push_image(mgr.config['base_image']['repo'], mgr.config['base_image']['tags'])
 
     def test_pull_image(self):
@@ -508,7 +508,7 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
         container = mgr.build_container()
         mgr.config['container']['python_packages'] = 'undefined_package'
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'No matching distribution'):
+        with self.assertRaisesRegex(wc_env_manager.WcEnvManagerError, 'No matching distribution'):
             mgr.setup_container()
 
     def test_setup_container_with_python_path(self):
@@ -541,13 +541,13 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
         mgr.copy_path_to_container(temp_file_name, '/tmp/test.txt')
         mgr.copy_path_to_container(temp_file_name, '/tmp/test.txt')  # overwrite
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'exists'):
+        with self.assertRaisesRegex(wc_env_manager.WcEnvManagerError, 'exists'):
             mgr.copy_path_to_container(temp_file_name, '/tmp/test.txt', overwrite=False)
 
         os.remove(temp_file_name)
         mgr.copy_path_from_container('/tmp/test.txt', temp_file_name)
         mgr.copy_path_from_container('/tmp/test.txt', temp_file_name)  # overwrite
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, 'exists'):
+        with self.assertRaisesRegex(wc_env_manager.WcEnvManagerError, 'exists'):
             mgr.copy_path_from_container('/tmp/test.txt', temp_file_name, overwrite=False)
 
         with open(temp_file_name, 'r') as file:
@@ -598,17 +598,17 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
 
         # error
         mgr.config['verbose'] = False
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, '  exit code: 126'):
+        with self.assertRaisesRegex(wc_env_manager.WcEnvManagerError, '  exit code: 126'):
             mgr.run_process_in_container(['__undefined__'])
 
         # error, specified working directory
         mgr.config['verbose'] = False
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, '  working directory: /root'):
+        with self.assertRaisesRegex(wc_env_manager.WcEnvManagerError, '  working directory: /root'):
             mgr.run_process_in_container(['__undefined__'], work_dir='/root')
 
         # error, specified environment
         mgr.config['verbose'] = False
-        with self.assertRaisesRegexp(wc_env_manager.WcEnvManagerError, '    key: val'):
+        with self.assertRaisesRegex(wc_env_manager.WcEnvManagerError, '    key: val'):
             mgr.run_process_in_container(['__undefined__'], env={'key': 'val'})
 
     def test_get_container_stats(self):
@@ -662,7 +662,7 @@ class WcEnvHostTestCase(unittest.TestCase):
             self.assertEqual(capture_output.get_text(), 'here')
 
 
-@unittest.skipIf(not RUN_LONG_TESTS or whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
+#@unittest.skipIf(not RUN_LONG_TESTS or whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
 class FullWcEnvTestCase(unittest.TestCase):
     def setUp(self):
         self.mgr = mgr = wc_env_manager.core.WcEnvManager()
@@ -685,14 +685,14 @@ class FullWcEnvTestCase(unittest.TestCase):
         mgr.login_docker_hub()
 
         # build base image
-        mgr.pull_image(config['base_image']['repo_unsquashed'], config['base_image']['tags'])
-        mgr.pull_image(config['base_image']['repo'], config['base_image']['tags'])
+        #mgr.pull_image(config['base_image']['repo_unsquashed'], config['base_image']['tags'])
+        #mgr.pull_image(config['base_image']['repo'], config['base_image']['tags'])
         mgr.build_base_image()
         mgr.push_image(config['base_image']['repo_unsquashed'], config['base_image']['tags'])
         mgr.push_image(config['base_image']['repo'], config['base_image']['tags'])
 
         # build image
-        mgr.pull_image(config['image']['repo'], config['image']['tags'])
+        #mgr.pull_image(config['image']['repo'], config['image']['tags'])
         mgr.build_image()
         mgr.push_image(config['image']['repo'], config['image']['tags'])
 
