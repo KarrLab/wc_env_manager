@@ -18,3 +18,4 @@ RUN pip{{ python_version }} install --process-dependency-links -r {{ requirement
 
 # Set default command
 ENTRYPOINT ["wc"]
+CMD []

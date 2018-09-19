@@ -562,6 +562,8 @@ class WcEnvManager(object):
         container = self._container = self._docker_client.containers.run(
             self.config['image']['repo'] + ':' + self.config['image']['tags'][0], name=name,
             volumes=self.config['container']['paths_to_mount'],
+            entrypoint=[],
+            command='bash',
             environment=self.config['container']['environment'],
             stdin_open=True, tty=tty,
             detach=True,
