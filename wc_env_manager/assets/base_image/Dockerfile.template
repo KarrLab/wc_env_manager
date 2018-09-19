@@ -109,6 +109,14 @@ RUN apt-get update -y \
     && rm -rf /var/lib/apt/lists/*
 {%- endif %}
 
+# install PostgreSQL client
+{% if postgresql_client_install -%}
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+{%- endif %}
+
 # install openbabel
 {% if openbabel_install -%}
 ARG openbabel_version=2.4.1
