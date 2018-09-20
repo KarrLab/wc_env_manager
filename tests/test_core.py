@@ -662,7 +662,7 @@ class WcEnvHostTestCase(unittest.TestCase):
             self.assertEqual(capture_output.get_text(), 'here')
 
 
-#@unittest.skipIf(not RUN_LONG_TESTS or whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
+@unittest.skipIf(not RUN_LONG_TESTS or whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
 class FullWcEnvTestCase(unittest.TestCase):
     def setUp(self):
         self.mgr = mgr = wc_env_manager.core.WcEnvManager()
@@ -702,7 +702,7 @@ class FullWcEnvTestCase(unittest.TestCase):
 
         with capturer.CaptureOutput(relay=True) as capture_output:
             mgr.run_process_in_container(['wc', '--help'])
-            self.assertRegex(capture_output.get_text(), 'usage: wc \[\-h\]')
+            self.assertRegex(capture_output.get_text(), r'usage: wc \[\-h\]')
 
 
 class ExampleTestCase(unittest.TestCase):
