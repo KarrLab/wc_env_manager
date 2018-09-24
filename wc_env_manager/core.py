@@ -559,12 +559,15 @@ class WcEnvManager(object):
         name = self.make_container_name()
 
         # create container
+        img_config = self.config['image']
+        cnt_config = self.config['container']
         container = self._container = self._docker_client.containers.run(
-            self.config['image']['repo'] + ':' + self.config['image']['tags'][0], name=name,
-            volumes=self.config['container']['paths_to_mount'],
+            img_config['repo'] + ':' + img_config['tags'][0], name=name,
+            environment=cnt_config['environment'],
+            volumes=cnt_config['paths_to_mount'],
+            ports=cnt_config['ports'],
             entrypoint=[],
             command='bash',
-            environment=self.config['container']['environment'],
             stdin_open=True, tty=tty,
             detach=True,
             user=WcEnvUser.root.name)
