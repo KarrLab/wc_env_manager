@@ -55,7 +55,7 @@ class BaseImageController(cement.Controller):
         config = mgr.config['base_image']
         mgr.login_docker_hub()
         mgr.push_image(config['repo_unsquashed'], config['tags'])
-        mgr.push_image(config['repo'], config['tags'])        
+        mgr.push_image(config['repo'], config['tags'])
 
     @cement.ex(help='Pull base image')
     def pull(self):
@@ -121,6 +121,31 @@ class ImageController(cement.Controller):
     def version(self):
         mgr = wc_env_manager.core.WcEnvManager({'verbose': VERBOSE})
         print(mgr.get_image_version(mgr._image))
+
+
+class NetworkController(cement.Controller):
+    """ Build and remove a Docker network """
+
+    class Meta:
+        label = 'network'
+        description = 'Build and remove a Docker network'
+        stacked_on = 'base'
+        stacked_type = 'nested'
+        arguments = []
+
+    @cement.ex(hide=True)
+    def _default(self):
+        self._parser.print_help()
+
+    @cement.ex(help='Build network')
+    def build(self):
+        mgr = wc_env_manager.core.WcEnvManager({'verbose': VERBOSE})
+        mgr.build_network()
+
+    @cement.ex(help='Remove network')
+    def remove(self):
+        mgr = wc_env_manager.core.WcEnvManager({'verbose': VERBOSE})
+        mgr.remove_network()
 
 
 class ContainerController(cement.Controller):
@@ -232,6 +257,7 @@ class App(cement.App):
             BaseController,
             BaseImageController,
             ImageController,
+            NetworkController,
             ContainerController,
             AllController,
         ]

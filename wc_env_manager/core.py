@@ -546,6 +546,46 @@ class WcEnvManager(object):
             if re.match(r'^\d+\.\d+\.\d+[a-zA-Z0-9]*$', version):
                 return version
 
+    def build_network(self):
+        """ Create Docker network """
+        config = self.config['network']
+
+        # create network, if necessary
+        try:
+            self._docker_client.networks.get(config['name'])
+        except docker.errors.NotFound:
+            self._docker_client.networks.create(config['name'])
+
+        # create other containers, if necessary
+        for name, attrs in config['containers'].items():
+            try:
+                container = self._docker_client.containers.get(name)
+            except docker.errors.NotFound:
+                self._docker_client.containers.run(
+                    attrs['image'], name=name,
+                    environment=attrs['environment'],
+                    network=config['name'],
+                    detach=True)
+
+    def remove_network(self):
+        """ Remove Docker network """
+        config = self.config['network']
+
+        # remove other containers, if they exist
+        for name, attrs in config['containers'].items():
+            try:
+                container = self._docker_client.containers.get(name)
+                container.remove(force=True)
+            except docker.errors.NotFound:
+                pass
+
+        # remove network, if it exists
+        try:
+            network = self._docker_client.networks.get(config['name'])
+            network.remove()
+        except docker.errors.NotFound:
+            pass
+
     def build_container(self, tty=True):
         """ Create Docker container for WC modeling environmet
 
@@ -557,6 +597,9 @@ class WcEnvManager(object):
         """
         # make name for container
         name = self.make_container_name()
+
+        # build network if needed
+        self.build_network()
 
         # create container
         img_config = self.config['image']
@@ -570,7 +613,8 @@ class WcEnvManager(object):
             command='bash',
             stdin_open=True, tty=tty,
             detach=True,
-            user=WcEnvUser.root.name)
+            user=WcEnvUser.root.name,
+            network=self.config['network']['name'])
 
         # return container
         return container

@@ -403,6 +403,88 @@ class WcEnvManagerDockerHubTestCase(unittest.TestCase):
 
 
 @unittest.skipIf(whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
+class WcEnvManagerNetworkTestCase(unittest.TestCase):
+    def setUp(self):
+        self.mgr = mgr = self.mgr = wc_env_manager.core.WcEnvManager()
+        mgr.config['network']['name'] = 'test_network__'
+        mgr.config['network']['containers'] = {
+            'test_db_container__': {
+                'image': 'circleci/postgres:10.5-alpine-ram',
+                'environment': {
+                    'POSTGRES_USER': 'postgres',
+                    'POSTGRES_DB': 'TestDatabase',
+                },
+            },
+        }
+
+        self.tearDown()
+
+    def tearDown(self):
+        mgr = self.mgr
+
+        try:
+            container = mgr._docker_client.containers.get('test_db_container__')
+            container.remove(force=True)
+        except docker.errors.NotFound:
+            pass
+
+        try:
+            container = mgr._docker_client.containers.get('test_client_container__')
+            container.remove(force=True)
+        except docker.errors.NotFound:
+            pass
+
+        try:
+            network = mgr._docker_client.networks.get('test_network__')
+            network.remove()
+        except docker.errors.NotFound:
+            pass
+
+    def test_build(self):
+        mgr = self.mgr
+
+        with self.assertRaises(docker.errors.NotFound):
+            mgr._docker_client.networks.get('test_network__')
+        with self.assertRaises(docker.errors.NotFound):
+            mgr._docker_client.containers.get('test_db_container__')
+
+        mgr.build_network()
+
+        mgr._docker_client.networks.get('test_network__')
+        db_container = mgr._docker_client.containers.get('test_db_container__')
+
+        # connect to DB container from another container
+        container = mgr._docker_client.containers.run('karrlab/wc_env_dependencies',
+                                                      name='test_client_container__',
+                                                      network='test_network__',
+                                                      detach=True,
+                                                      stdin_open=True, tty=True,
+                                                      entrypoint=[], command="bash")
+        connected = False
+        for i in range(10):
+            # try connecting until Postgres boots up
+            result = container.exec_run("psql -h test_db_container__ -U postgres TestDatabase -c '\\l'")
+            if result.exit_code == 0 and 'TestDatabase' in result.output.decode('utf-8')[0:-1]:
+                connected = True
+                break
+            time.sleep(1.)
+        self.assertTrue(connected)
+
+    def test_remove(self):
+        mgr = self.mgr
+
+        mgr.build_network()
+        mgr.remove_network()
+
+        with self.assertRaises(docker.errors.NotFound):
+            mgr._docker_client.networks.get('test_network__')
+        with self.assertRaises(docker.errors.NotFound):
+            mgr._docker_client.containers.get('test_db_container__')
+
+        mgr.remove_network()
+
+
+@unittest.skipIf(whichcraft.which('docker') is None, 'Test requires Docker and Docker isn''t installed.')
 class WcEnvManagerContainerTestCase(unittest.TestCase):
     def setUp(self):
         mgr = self.mgr = wc_env_manager.core.WcEnvManager()
@@ -412,12 +494,14 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
         mgr.config['image']['python_packages'] = ''
         mgr.build_image()
 
-        mgr.remove_containers(force=True)
+        mgr.config['network']['name'] = '__test__'
+        mgr.config['network']['containers'] = {}
 
     def tearDown(self):
         mgr = self.mgr
-        mgr.remove_image(mgr.config['image']['repo'], mgr.config['image']['tags'])
         mgr.remove_containers(force=True)
+        mgr.remove_network()
+        mgr.remove_image(mgr.config['image']['repo'], mgr.config['image']['tags'])
 
     def test_build_container(self):
         mgr = self.mgr
@@ -479,7 +563,7 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
         with capturer.CaptureOutput(relay=False) as capture_output:
             mgr.setup_container()
             text = capture_output.get_text()
-        self.assertRegex(text, r'Processing /root/host/Documents/wc_utils')
+        self.assertRegex(text, r'Processing .*?wc_utils')
         self.assertRegex(text, r'Successfully installed .*?wc-utils-')
 
         mgr.run_process_in_container(['rm', '-r', '/root/host/Documents/wc_kb/wc_kb.egg-info'])
@@ -669,6 +753,7 @@ class FullWcEnvTestCase(unittest.TestCase):
 
         config = mgr.config
         # config['image']['tags'] = ['test']
+        # config['network']['name'] = '__test__'
 
     def tearDown(self):
         mgr = self.mgr

@@ -73,6 +73,17 @@ class MainTestCase(unittest.TestCase):
         with __main__.App(argv=['image', 'pull']) as app:
             app.run()
 
+    def test_network(self):
+        with __main__.App(argv=['network', '--help']) as app:
+            with self.assertRaises(SystemExit):
+                app.run()
+
+        with __main__.App(argv=['network', 'build']) as app:
+            app.run()
+
+        with __main__.App(argv=['network', 'remove']) as app:
+            app.run()
+
     def test_container(self):
         with __main__.App(argv=['container', '--help']) as app:
             with self.assertRaises(SystemExit):
