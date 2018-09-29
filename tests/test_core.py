@@ -345,6 +345,8 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
             self.assertRegex(text, 'Successfully installed .*?wc-lang-')
             self.assertRegex(text, 'Successfully installed .*?wc-utils-')
             self.assertRegex(text, 'Successfully built')
+        mgr.config['container']['python_packages'] = ''
+        mgr.config['container']['setup_script'] = ''
         mgr.build_container()
 
         mgr.copy_path_from_container('/tmp/a',
@@ -497,6 +499,10 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
         mgr.config['network']['name'] = '__test__'
         mgr.config['network']['containers'] = {}
 
+        mgr.config['container']['paths_to_mount'] = {}
+        mgr.config['container']['python_packages'] = ''
+        mgr.config['container']['setup_script'] = ''
+
     def tearDown(self):
         mgr = self.mgr
         mgr.remove_containers(force=True)
@@ -598,7 +604,6 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
     def test_setup_container_with_python_path(self):
         mgr = self.mgr
         mgr.config['image']['python_packages'] = ''
-        mgr.config['container']['python_packages'] = ''
         mgr.config['container']['environment'] = {
             'PYTHONPATH': ':'.join([
                 '/root/host/Documents/package_1',
@@ -613,6 +618,19 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
             '/root/host/Documents/package_1:'
             '/root/host/Documents/package_2'
         ))
+
+    def test_setup_container_with_python_path(self):
+        mgr = self.mgr
+        container = mgr.build_container()
+
+        mgr.config['container']['setup_script'] = '''
+            echo "test-1"
+            echo "test-2"
+            '''
+        mgr.config['verbose'] = True
+        with capturer.CaptureOutput(relay=False) as capture_output:
+            mgr.setup_container()
+            self.assertEqual(capture_output.get_text(), 'test-1\ntest-2')
 
     def test_copy_path_to_from_docker_container(self):
         mgr = self.mgr

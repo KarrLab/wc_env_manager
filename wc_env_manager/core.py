@@ -565,7 +565,8 @@ class WcEnvManager(object):
                     attrs['image'], name=name,
                     environment=attrs['environment'],
                     network=config['name'],
-                    detach=True)
+                    detach=True,
+                    restart_policy={'name': 'always'})
 
     def remove_network(self):
         """ Remove Docker network """
@@ -635,6 +636,7 @@ class WcEnvManager(object):
             process_dependency_links (:obj:`bool`, optional): if :obj:`True`, install packages from provided
                 URLs
         """
+        # install Python packages
         lines = self.config['container']['python_packages'].split('\n')
         for line in lines:
             line = line.strip()
@@ -652,6 +654,11 @@ class WcEnvManager(object):
                     cmd.append('--process-dependency-links')
 
                 self.run_process_in_container(cmd, container_user=WcEnvUser.root)
+
+        # run additional setup
+        cmd = self.config['container']['setup_script']
+        if cmd:
+            self.run_process_in_container(['bash', '-c', cmd], container_user=WcEnvUser.root)
 
     def copy_path_to_container(self, local_path, container_path, overwrite=True, container_user=WcEnvUser.root):
         """ Copy file or directory to Docker container
