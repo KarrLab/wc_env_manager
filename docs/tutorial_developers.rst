@@ -26,6 +26,17 @@ Building containers for WC modeling
 
 Second, set the configuration for the containers created by *wc_env_manager* by creating a configuration file `./wc_env_manager.cfg` following the schema outlined in `/path/to/wc_env_manager/wc_env_manager/config/core.schema.cfg` and the defaults in `/path/to/wc_env_manager/wc_env_manager/config/core.default.cfg`.
 
+    * Configure additional Docker containers that should be run and linked to the main container. For example, the configuration below will generate a second container based on the ``postgres:10.5-alpine`` image with the host name ``postgres_hostname`` on the ``wc_network`` Docker network and the environment variable ``POSTGRES_USER`` set to ``postgres_user``. The main Docker image will also be added to the same ``wc_network`` Docker network, which will make the second image accessible to the main image with the host name ``postgres_hostname``. In this example, it will then be possible to login to the Postgres service from the main container with the command ``psql -h postgres_hostname -U postgres_user <DB>``.
+
+        [wc_env_manager]
+            [[network]]
+                name = wc_network
+                [[[containers]]]
+                    [[[[postgres_hostname]]]]
+                        image = postgres:10.5-alpine
+                        [[[[[environment]]]]]
+                            POSTGRES_USER = postgres_user
+
     * Configure environment variables that should be set in the Docker container. The following example illustrates how to set the ``PYTHONPATH`` environment variable to the paths to *wc_lang* and *wc_sim*. Note, we recommend using *pip* to manipulate the Python path rather than directly manipulating the ``PYTHONPATH`` environment variable. We only recommend manipulating the ``PYTHONPATH`` environment variable for packages that don't have ``setup.py`` scripts or for packages that ``setup.py`` scripts that you temporarily don't want to run.::
 
         [wc_env_manager]
@@ -54,7 +65,19 @@ Second, set the configuration for the containers created by *wc_env_manager* by 
                     -e /root/host/Documents/wc_utils
                     '''
 
-    * Config the ports that should be exposed by the container. The following example illustrates how to expose port 8888 as 8888.::
+    * Configure additional command(s) that should be run when the main Docker container is created. These commands will be run within a bash shell. For example, this configuration will restore the datanator database when the container is created.::
+
+        [wc_env_manager]
+            [[container]]
+                setup_script = '''
+                    if [ -x "$$(command -v kinetic_datanator)" ]; then
+                        kinetic_datanator db create
+                        kinetic_datanator db migrate
+                        kinetic_datanator db restore --restore-schema --do-not-exit-on-error
+                    fi
+                    '''
+
+    * Configure the ports that should be exposed by the container. The following example illustrates how to expose port 8888 as 8888.::
 
         [wc_env_manager]
             [[container]]
