@@ -1,4 +1,6 @@
 static_analyses:
   ignore_files: []
-downstream_dependencies: []
-email_notifications: []
+downstream_dependencies:
+  - wc
+email_notifications:
+  - jonrkarr@gmail.com
