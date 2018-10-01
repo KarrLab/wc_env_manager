@@ -70,10 +70,10 @@ Second, set the configuration for the containers created by *wc_env_manager* by 
         [wc_env_manager]
             [[container]]
                 setup_script = '''
-                    if [ -x "$$(command -v kinetic_datanator)" ]; then
-                        kinetic_datanator db create
-                        kinetic_datanator db migrate
-                        kinetic_datanator db restore --restore-schema --do-not-exit-on-error
+                    if [ -x "$$(command -v datanator)" ]; then
+                        datanator db create
+                        datanator db migrate
+                        datanator db restore --restore-schema --do-not-exit-on-error
                     fi
                     '''
 
