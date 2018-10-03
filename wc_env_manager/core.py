@@ -565,6 +565,7 @@ class WcEnvManager(object):
                     attrs['image'], name=name,
                     environment=attrs['environment'],
                     network=config['name'],
+                    shm_size=attrs['shm_size'],
                     detach=True,
                     restart_policy={'name': 'always'})
 
