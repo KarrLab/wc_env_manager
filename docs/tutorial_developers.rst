@@ -84,22 +84,20 @@ Second, set the configuration for the containers created by *wc_env_manager* by 
                 [[[ports]]]
                     8888 = 8888
 
-Third, use the following command to use *wc_env* to construct a Docker container.::
+Third, use the following command to use *wc_env* to construct a network of Docker containers.::
 
   wc_env_manager container build
 
-This will print out the id of the container that is built.
+This will print out the id of the WC container that was built. This is the main container that
+you should use to run WC models and WC modeling tools.
 
 
 Using containers to run WC models and WC modeling tools
 -------------------------------------------------------
 
-Fourth, use the following command to execute the container. It launches the container, and runs an interactive
-*bash* shell that runs commands inside the container.::
+Fourth, use the following command to execute the container. This launches the container and runs an interactive *bash* shell inside the container.::
 
-  cd /path/to/wc_env_manager
-  docker-compose up -d
-  docker-compose exec wc_env bash
+  docker exec --interactive --tty <container_id> bash
 
 Fifth, use the integrated WC modeling command line program, `*wc* <https://github.com/KarrLab/wc>`_, to run WC models and WC modeling tools. For example, the following command illustrates how to get help for the *wc* program. See the `*wc* documentation <https://docs.karrlab.org/wc>`_ for more information.::
 
@@ -108,13 +106,8 @@ Fifth, use the integrated WC modeling command line program, `*wc* <https://githu
 Using containers to develop WC models and WC modeling tools
 -----------------------------------------------------------
 
-Sixth, use any other command line program inside the container -- such as *python*, *coverage* and *pytest* -- to
-run or analyze WC tools and models. These are accessible via
-the host paths of directories that were mounted as volumes into the containers and/or repositories installed by *pip*.
-
-Seventh, stop the container by exiting it with *exit* or control-d. The container can be restarted by the *docker exec ...*
-command above. Unfortunately, local changes to the container, such as modifications to files that are not shared with
-the host or changes to the *bash* environment, cannot be saved and then restored when the container is restarted.
+Sixth, use command line programs inside the container, such as *python*, *coverage* or *pytest*, to
+run WC models and tools. Note, only mounted host paths will be accessible in the container.
 
 Using WC modeling computing environments with an external IDE such as PyCharm
 -----------------------------------------------------------------------------
@@ -127,3 +120,15 @@ The Docker images created with *wc_env_manager* can be used with external integr
 
     #. Install the IDE in a Docker image
     #. Use X11 forwarding to render graphical output from a Docker container to your host. See `Using GUI's with Docker <https://jupyter-docker-stacks.readthedocs.io>`_ for more information.
+
+Exiting and removing containers
+-------------------------------
+
+Next, exit the container by executing *exit* or typing control-d. The container can be restarted using the following commands::
+
+    docker restart <container_id>
+    docker exec --interactive --tty <container_id> bash
+
+Finally, remove the container by executing the following command::
+    
+    wc_env_manager container remove

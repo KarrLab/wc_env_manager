@@ -24,21 +24,20 @@ The following commands can also be used to pull the individual images.::
 Building containers for WC modeling
 -----------------------------------
 
-Second, use the following command to use *wc_env* to construct a Docker container.::
+Second, use the following command to use *wc_env* to construct a network of Docker containers.::
 
   wc_env_manager container build
 
-This will print out the id of the created container.
+This will print out the id of the WC container that was built. This is the main container that
+you should use to run WC models and WC modeling tools.
 
 
 Using containers to run WC models and WC modeling tools
 -------------------------------------------------------
 
-Third, use the following command to log in the container.::
+Third, use the following command to execute the container. This launches the container and runs an interactive *bash* shell inside the container.::
 
-  cd /path/to/wc_env_manager
-  docker-compose up -d
-  docker-compose exec wc_env bash
+  docker exec --interactive --tty <container_id> bash
 
 Fourth, use the integrated WC modeling command line program, `*wc* <https://github.com/KarrLab/wc>`_, to run WC models and WC modeling tools. For example, the following command illustrates how to get help for the *wc* program. See the `*wc* documentation <https://docs.karrlab.org/wc>`_ for more information.::
 
@@ -56,3 +55,15 @@ The Docker images created with *wc_env_manager* can be used with external integr
 
     #. Install the IDE in a Docker image
     #. Use X11 forwarding to render graphical output from a Docker container to your host. See `Using GUI's with Docker <https://jupyter-docker-stacks.readthedocs.io>`_ for more information.
+
+Exiting and removing containers
+-------------------------------
+
+Next, exit the container by executing *exit* or typing control-d. The container can be restarted using the following commands::
+
+    docker restart <container_id>
+    docker exec --interactive --tty <container_id> bash
+
+Finally, remove the container by executing the following command::
+    
+    wc_env_manager container remove
