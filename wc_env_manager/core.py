@@ -637,6 +637,16 @@ class WcEnvManager(object):
             process_dependency_links (:obj:`bool`, optional): if :obj:`True`, install packages from provided
                 URLs
         """
+        # copy paths to container
+        paths_to_copy = \
+            self.get_config_file_paths_to_copy_to_image() \
+            + copy.deepcopy(self.config['image']['paths_to_copy'].values())
+        for path in paths_to_copy:
+            if os.path.isfile(path['host']) or os.path.isdir(path['host']):
+                self.run_process_on_host(['docker', 'cp', 
+                    path['host'],  
+                    self._container.name + ':' + path['image']])
+
         # install Python packages
         lines = self.config['container']['python_packages'].split('\n')
         for line in lines:
