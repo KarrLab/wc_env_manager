@@ -647,6 +647,8 @@ class WcEnvManager(object):
                     path['host'],  
                     self._container.name + ':' + path['image']])
 
+        self.run_process_in_container(['chmod', '0600', '/root/.ssh/id_rsa'])
+
         # install Python packages
         lines = self.config['container']['python_packages'].split('\n')
         for line in lines:
