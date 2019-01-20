@@ -16,3 +16,6 @@ recursive-include wc_env_manager *.cfg
 
 # assets
 recursive-include wc_env_manager/assets *
+exclude wc_env_manager/assets/base_image/cplex_studio128.linux-x86-64.bin
+exclude wc_env_manager/assets/base_image/mosek.lic
+exclude wc_env_manager/assets/base_image/xpauth.xpr
