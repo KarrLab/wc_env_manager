@@ -1,4 +1,4 @@
-[//]: # ( [![PyPI package](https://img.shields.io/pypi/v/wc_env_manager.svg)](https://pypi.python.org/pypi/wc_env_manager) )
+[![PyPI package](https://img.shields.io/pypi/v/wc_env_manager.svg)](https://pypi.python.org/pypi/wc_env_manager)
 [![Documentation](https://img.shields.io/badge/docs-latest-green.svg)](https://docs.karrlab.org/wc_env_manager)
 [![Test results](https://circleci.com/gh/KarrLab/wc_env_manager.svg?style=shield)](https://circleci.com/gh/KarrLab/wc_env_manager)
 [![Test coverage](https://coveralls.io/repos/github/KarrLab/wc_env_manager/badge.svg)](https://coveralls.io/github/KarrLab/wc_env_manager)
