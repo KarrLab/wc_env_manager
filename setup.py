@@ -50,7 +50,7 @@ setuptools.setup(
     ],
     entry_points={
         'console_scripts': [
-            'wc_env_manager = wc_env_manager.__main__:main',
+            'wc-env-manager = wc_env_manager.__main__:main',
         ],
     },
 )

@@ -13,12 +13,12 @@ Pulling existing Docker images
 
 First, use the following command to pull existing WC modeling Docker images. This will pull both the base image with third part dependencies, *wc_env_dependencies*, and the image with WC models and modeling tools, *wc_env*.::
 
-  wc_env_manager pull
+  wc-env-manager pull
 
 The following commands can also be used to pull the individual images.::
 
-  wc_env_manager base-image pull
-  wc_env_manager image pull
+  wc-env-manager base-image pull
+  wc-env-manager image pull
 
 
 Building containers for WC modeling
@@ -86,7 +86,7 @@ Second, set the configuration for the containers created by *wc_env_manager* by 
 
 Third, use the following command to use *wc_env* to construct a network of Docker containers.::
 
-  wc_env_manager container build
+  wc-env-manager container build
 
 This will print out the id of the WC container that was built. This is the main container that
 you should use to run WC models and WC modeling tools.
@@ -131,4 +131,4 @@ Next, exit the container by executing *exit* or typing control-d. The container 
 
 Finally, remove the container by executing the following command::
     
-    wc_env_manager container remove
+    wc-env-manager container remove

@@ -91,7 +91,7 @@ Build the *wc_env* and *wc_env_dependencies* Docker images
 
 Use the following command to build the *wc_env* and *wc_env_dependencies* images::
 
-    wc_env_manager build
+    wc-env-manager build
 
 
 Push the *wc_env* and *wc_env_dependencies* Docker images to DockerHub
@@ -99,4 +99,4 @@ Push the *wc_env* and *wc_env_dependencies* Docker images to DockerHub
 
 Use the following command to push the *wc_env* and *wc_env_dependencies* images to GitHub::
 
-    wc_env_manager push
+    wc-env-manager push
