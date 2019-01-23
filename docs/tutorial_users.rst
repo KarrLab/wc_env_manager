@@ -39,9 +39,9 @@ Third, use the following command to execute the container. This launches the con
 
   docker exec --interactive --tty <container_id> bash
 
-Fourth, use the integrated WC modeling command line program, `*wc* <https://github.com/KarrLab/wc_cli>`_, to run WC models and WC modeling tools. For example, the following command illustrates how to get help for the *wc* program. See the `*wc* documentation <https://docs.karrlab.org/wc_cli>`_ for more information.::
+Fourth, use the integrated WC modeling command line program, `*wc_cli* <https://github.com/KarrLab/wc_cli>`_, to run WC models and WC modeling tools. For example, the following command illustrates how to get help for the *wc_cli* program. See the `*wc_cli* documentation <https://docs.karrlab.org/wc_cli>`_ for more information.::
 
-  container >> wc --help
+  container >> wc-cli --help
 
 
 Using WC modeling computing environments with an external IDE such as PyCharm

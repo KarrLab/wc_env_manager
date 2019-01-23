@@ -804,8 +804,8 @@ class FullWcEnvTestCase(unittest.TestCase):
         mgr.setup_container()
 
         with capturer.CaptureOutput(relay=True) as capture_output:
-            mgr.run_process_in_container(['wc', '--help'])
-            self.assertRegex(capture_output.get_text(), r'usage: wc \[\-h\]')
+            mgr.run_process_in_container(['wc-cli', '--help'])
+            self.assertRegex(capture_output.get_text(), r'usage: wc-cli \[\-h\]')
 
 
 class ExampleTestCase(unittest.TestCase):
