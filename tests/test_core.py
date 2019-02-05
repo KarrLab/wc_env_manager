@@ -307,6 +307,21 @@ class WcEnvManagerBuildRemoveImageTestCase(unittest.TestCase):
 
         shutil.rmtree(temp_dir_name)
 
+    @unittest.skipUnless(os.path.isdir(os.path.expanduser(os.path.join('~', '.wc'))),
+                         'config files package must be installed')
+    def test_get_config_file_paths_to_copy_to_image_warning(self):
+        mgr = self.mgr
+
+        temp_dir_name = tempfile.mkdtemp()
+        os.mkdir(os.path.join(temp_dir_name, 'third_party'))
+        mgr.config['image']['config_path'] = temp_dir_name
+        with open(os.path.join(temp_dir_name, 'pkg.cfg'), 'w') as file:
+            pass
+        with self.assertWarnsRegex(UserWarning, 'will not be copied to the image'):
+            mgr.get_config_file_paths_to_copy_to_image()
+
+        shutil.rmtree(temp_dir_name)
+
     def test_build_image(self):
         mgr = self.mgr
         mgr.config['verbose'] = True

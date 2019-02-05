@@ -50,6 +50,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import warnings
 import wc_env_manager.config.core
 import yaml
 
@@ -435,14 +436,23 @@ class WcEnvManager(object):
 
             # copy third party config files to image
             filename = os.path.join(host_dirname, 'third_party', 'paths.yml')
-            with open(filename, 'r') as file:
-                paths = yaml.load(file)
+            if os.path.isfile(filename):
+                with open(filename, 'r') as file:
+                    paths = yaml.load(file)
 
-            for rel_src, abs_dest in paths.items():
-                abs_src = os.path.join(host_dirname, 'third_party', rel_src)
-                if abs_dest[0:2] == '~/':
-                    abs_dest = os.path.join('/root', abs_dest[2:])
-                paths_to_copy_to_image.append({'host': abs_src, 'image': abs_dest})
+                for rel_src, abs_dest in paths.items():
+                    abs_src = os.path.join(host_dirname, 'third_party', rel_src)
+                    if abs_dest[0:2] == '~/':
+                        abs_dest = os.path.join('/root', abs_dest[2:])
+                    paths_to_copy_to_image.append({'host': abs_src, 'image': abs_dest})
+            else:
+                warnings.warn(('Third party configuration files will not be copied to the image'
+                               f' because no index of third party configuration files was found at "{filename}". '
+                               ' This path should be a YAML-encoded dictionary which maps the names of files'
+                               ' within "{}" to locations in the image where each file should be copied.'
+                               ' See "https://github.com/KarrLab/karr_lab_build_config/tree/master/third_party"'
+                               ' for an example.'),
+                              UserWarning)
 
         return paths_to_copy_to_image
 
@@ -643,9 +653,9 @@ class WcEnvManager(object):
             + copy.deepcopy(self.config['image']['paths_to_copy'].values())
         for path in paths_to_copy:
             if os.path.isfile(path['host']) or os.path.isdir(path['host']):
-                self.run_process_on_host(['docker', 'cp', 
-                    path['host'],  
-                    self._container.name + ':' + path['image']])
+                self.run_process_on_host(['docker', 'cp',
+                                          path['host'],
+                                          self._container.name + ':' + path['image']])
 
         self.run_process_in_container(['chmod', '0600', '/root/.ssh/id_rsa'])
 
