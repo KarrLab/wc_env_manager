@@ -171,6 +171,16 @@ RUN apt-get update -y \
     && rm -rf /var/lib/apt/lists/*
 {%- endif %}
 
+# install ChemAxon Marvin
+
+{% if marvin_install -%}
+ARG version_marvin=19.3
+COPY marvin_linux_${version_marvin}.deb /tmp/
+RUN cd /tmp \
+    && dpkg -i marvin_linux_${version_marvin}.deb \
+    && rm marvin_linux_${version_marvin}.deb
+{%- endif %}
+
 # install cplex
 {% if cplex_install -%}
 ARG cplex_version=12.8.0
