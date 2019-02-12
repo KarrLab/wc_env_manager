@@ -176,9 +176,18 @@ RUN apt-get update -y \
 {% if marvin_install -%}
 ARG version_marvin=19.3
 COPY marvin_linux_${version_marvin}.deb /tmp/
-RUN cd /tmp \
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        default-jre \
+        default-jdk \
+    \
+    cd /tmp \
     && dpkg -i marvin_linux_${version_marvin}.deb \
-    && rm marvin_linux_${version_marvin}.deb
+    && rm marvin_linux_${version_marvin}.deb \
+    \
+    && rm -rf /var/lib/apt/lists/*
+ENV JAVA_HOME=/usr/lib/jvm/default-java \
+    CLASSPATH=$CLASSPATH:/opt/chemaxon/marvinsuite/lib/MarvinBeans.jar
 {%- endif %}
 
 # install cplex
