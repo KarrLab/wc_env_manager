@@ -50,10 +50,10 @@ tests/fixtures/secret/
 Thumbs.db
 
 # credentials in tokens
-wc_env_manager/assets/base_image/cplex_studio128.linux-x86-64.bin
+wc_env_manager/assets/base_image/cplex_studio*.linux-x86-64.bin
 wc_env_manager/assets/base_image/mosek.lic
 wc_env_manager/assets/base_image/xpauth.xpr
-wc_env_manager/assets/base_image/marvin_linux_19.3.deb
+wc_env_manager/assets/base_image/marvin_linux_*.deb
 
 # configuration file
 wc_env_manager.cfg

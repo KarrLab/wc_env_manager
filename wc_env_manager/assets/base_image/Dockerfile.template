@@ -40,7 +40,7 @@ RUN apt-get update -y \
     && rm -rf /var/lib/apt/lists/*
 
 # install Python
-ARG python_version=3.6.5
+ARG python_version=3.6.8
 ARG python_version_major_minor=3.6
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib
 RUN apt-get update -y \
@@ -174,16 +174,16 @@ RUN apt-get update -y \
 # install ChemAxon Marvin
 
 {% if marvin_install -%}
-ARG version_marvin=19.3
-COPY marvin_linux_${version_marvin}.deb /tmp/
+ARG marvin_version=19.7
+COPY marvin_linux_${marvin_version}.deb /tmp/
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
         default-jre \
         default-jdk \
     \
-    cd /tmp \
-    && dpkg -i marvin_linux_${version_marvin}.deb \
-    && rm marvin_linux_${version_marvin}.deb \
+    && cd /tmp \
+    && dpkg -i marvin_linux_${marvin_version}.deb \
+    && rm marvin_linux_${marvin_version}.deb \
     \
     && rm -rf /var/lib/apt/lists/*
 ENV JAVA_HOME=/usr/lib/jvm/default-java \
@@ -218,7 +218,7 @@ RUN apt-get update -y \
 
 # install gurobi
 {% if gurobi_install -%}
-ARG gurobi_version=8.0.1
+ARG gurobi_version=8.1.0
 ARG gurobi_license={{ gurobi_license }}
 COPY install_gurobi.exp /tmp/
 RUN apt-get update -y \
@@ -252,7 +252,7 @@ ENV GUROBI_HOME=/opt/gurobi${gurobi_version_nodot}/linux64 \
 
 # install mosek
 {% if mosek_install -%}
-ARG mosek_version=8.1.0.58
+ARG mosek_version=8.1.0.78
 COPY {{ mosek_license }} /tmp/
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
@@ -281,7 +281,7 @@ ENV PATH="${PATH}:/opt/mosek/${mosek_version_major}/tools/platform/linux64x86/bi
 
 # install xpress
 {% if xpress_install -%}
-ARG xpress_version=8.5.3
+ARG xpress_version=8.5.6
 ARG xpress_license_server={{ xpress_license_server }}
 COPY {{ xpress_license }} /tmp/
 COPY xpress.egg-info /tmp/
@@ -519,7 +519,7 @@ RUN apt-get update -y \
 # SUNDIALS: SUite of Nonlinear and DIfferential/ALgebraic Equation Solvers
 # https://computation.llnl.gov/projects/sundials
 {% if sundials_install -%}
-ARG sundials_version=3.1.1
+ARG sundials_version=3.2.0
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
         build-essential \
@@ -559,7 +559,7 @@ RUN apt-get update -y \
 
 # kallisto
 {% if kallisto_install -%}
-ARG kallisto_version=0.44.0
+ARG kallisto_version=0.45.1
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
         tar \

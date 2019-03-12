@@ -4,8 +4,8 @@ docker
 docker_squash
 gitpython
 jinja2
-git+git://github.com/KarrLab/pkg_utils.git#egg=pkg_utils-0.0.3
+git+https://github.com/KarrLab/pkg_utils.git#egg=pkg_utils-0.0.3
 python_dateutil
 pyyaml
 git+https://github.com/davidfischer/requirements-parser.git#egg=requirements_parser-0.2.0 >= 0.2.0
-git+git://github.com/KarrLab/wc_utils.git#egg=wc_utils-0.0.1a5
+git+https://github.com/KarrLab/wc_utils.git#egg=wc_utils-0.0.1a5
