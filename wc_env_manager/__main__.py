@@ -61,7 +61,7 @@ class BaseImageController(cement.Controller):
     def pull(self):
         mgr = wc_env_manager.core.WcEnvManager({'verbose': VERBOSE})
         config = mgr.config['base_image']
-        mgr.push_image(config['repo_unsquashed'], config['tags'])
+        mgr.pull_image(config['repo_unsquashed'], config['tags'])
         mgr.pull_image(config['repo'], config['tags'])
 
     @cement.ex(help='Remove base image')

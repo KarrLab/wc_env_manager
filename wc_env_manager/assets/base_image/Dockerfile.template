@@ -519,7 +519,7 @@ RUN apt-get update -y \
 # SUNDIALS: SUite of Nonlinear and DIfferential/ALgebraic Equation Solvers
 # https://computation.llnl.gov/projects/sundials
 {% if sundials_install -%}
-ARG sundials_version=3.2.0
+ARG sundials_version=3.2.1
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
         build-essential \
@@ -538,6 +538,7 @@ RUN apt-get update -y \
     && cmake \
         -DEXAMPLES_ENABLE=OFF \
         -DLAPACK_ENABLE=ON \
+        -DSUNDIALS_INDEX_TYPE=int32_t \
         .. \
     && make \
     && make install \
@@ -546,6 +547,7 @@ RUN apt-get update -y \
     && rm sundials-${sundials_version}.tar.gz \
     && rm -r sundials-${sundials_version} \
     \
+    && pip${python_version_major_minor} uninstall enum34 \
     && pip${python_version_major_minor} install scikits.odes \
     \
     && apt-get remove -y \

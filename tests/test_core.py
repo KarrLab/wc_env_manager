@@ -87,17 +87,20 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
         mgr = self.mgr
         self.mgr.config['image']['python_packages'] = '''
         git+https://github.com/KarrLab/datanator.git#egg=datanator-0.0.1[all]
+        git+https://github.com/KarrLab/obj_model.git#egg=obj_model-0.0.1[all]
         git+https://github.com/KarrLab/wc_lang.git#egg=wc_lang-0.0.1[all]
         git+https://github.com/KarrLab/wc_utils.git#egg=wc_utils-0.0.1[all]
         git+https://github.com/KarrLab/pkg_utils.git#egg=pkg_utils-0.0.3[all]
         git+https://github.com/KarrLab/pkg_utils.git#egg=pkg_utils-0.0.3[all]
         '''
         reqs = mgr.get_required_python_packages()
+        print(reqs)
         self.assertIn('numpy', reqs)
+        self.assertNotIn('obj_model', reqs)
         self.assertIn('requests', reqs)
         self.assertIn('requests_cache', reqs)
-        self.assertIn('git+https://github.com/KarrLab/log.git#egg=log-2016.10.12', reqs)
-        self.assertIn('git+https://github.com/davidfischer/requirements-parser.git#egg=requirements_parser-0.2.0 >= 0.2.0', reqs)
+        self.assertIn('log >= 2016.10.12', reqs)
+        self.assertIn('requirements_parser >= 0.2.0', reqs)
 
     def test_build_base_image(self):
         mgr = self.mgr
@@ -426,7 +429,8 @@ class WcEnvManagerNetworkTestCase(unittest.TestCase):
         mgr.config['network']['name'] = 'test_network__'
         mgr.config['network']['containers'] = {
             'test_db_container__': {
-                'image': 'circleci/postgres:10.5-alpine-ram',
+                'image': 'circleci/postgres:11.2-alpine-ram',
+                'shm_size': '1G',
                 'environment': {
                     'POSTGRES_USER': 'postgres',
                     'POSTGRES_DB': 'TestDatabase',
@@ -645,7 +649,7 @@ class WcEnvManagerContainerTestCase(unittest.TestCase):
         mgr.config['verbose'] = True
         with capturer.CaptureOutput(relay=False) as capture_output:
             mgr.setup_container()
-            self.assertEqual(capture_output.get_text(), 'test-1\ntest-2')
+            self.assertEqual(capture_output.get_text().strip(), 'test-1\ntest-2')
 
     def test_copy_path_to_from_docker_container(self):
         mgr = self.mgr

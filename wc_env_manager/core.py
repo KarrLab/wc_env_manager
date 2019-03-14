@@ -41,7 +41,6 @@ import glob
 import jinja2
 import logging
 import os
-import pkg_utils
 import re
 import requests
 import requirements
@@ -179,74 +178,63 @@ class WcEnvManager(object):
         temp_dir_name = tempfile.mkdtemp()
 
         # save requirements for image to temp file and parse requirements
-        python_packages = []
-        wc_python_packages = []
+        pypi_pkgs = []
+        wc_pkgs = []
         for pkg in self.config['image']['python_packages'].split('\n'):
             pkg = pkg.strip()
-            python_packages.append(pkg)
-            if 'git+https://' in pkg:
-                _, _, pkg_name = pkg.partition('#egg=')
-                pkg_name, _, _ = pkg_name.partition('-')
-                wc_python_packages.append(pkg_name)
 
-        _, dependency_links = pkg_utils.parse_requirement_lines(
-            python_packages, include_extras=False, include_specs=False, include_markers=False)
+            pkg_name = re.match(r'git\+https://github\.com/KarrLab/(.*?)\.git', pkg)
+            if pkg_name:
+                wc_pkgs.append(pkg_name.group(1))
+            else:
+                pypi_pkgs.append(pkg)
 
         # collate requirements for packages
         reqs = set()
-        for dependency_link in dependency_links:
-            if dependency_link.startswith('git+https://'):
-                url, _, egg = dependency_link[4:].partition('#')
-                _, _, package_name = egg.partition('=')
-                package_name, _, _ = package_name.partition('-')
+        for package_name in wc_pkgs:
+            url = 'https://github.com/KarrLab/' + package_name
+            dir_name = os.path.join(temp_dir_name, package_name)
+            max_tries = 5
+            for i_try in range(max_tries):
+                try:
+                    git.Repo.clone_from(url, dir_name)
+                    break
+                except git.exc.GitCommandError as exception:  # pragma: no cover
+                    if i_try == max_tries - 1:  # pragma: no cover
+                        raise exception  # pragma: no cover
+                    time.sleep(1.)
 
-                dir_name = os.path.join(temp_dir_name, package_name)
-                max_tries = 5
-                for i_try in range(max_tries):
-                    try:
-                        git.Repo.clone_from(url, dir_name)
-                        break
-                    except git.exc.GitCommandError as exception:  # pragma: no cover
-                        if i_try == max_tries - 1:  # pragma: no cover
-                            raise exception  # pragma: no cover
-                        time.sleep(1.)
+            def read_packages(file_name,):
+                lines_to_keep = []
 
-                def read_packages(file_name,):
-                    lines_to_keep = []
+                if os.path.isfile(file_name):
+                    with open(file_name, 'r') as file:
+                        lines = file.readlines()
 
-                    if os.path.isfile(file_name):
-                        with open(file_name, 'r') as file:
-                            lines = file.readlines()
+                    for line in lines:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        if line[0] in ['#', '[']:
+                            continue
 
-                        for line in lines:
-                            line = line.strip()
-                            if not line:
-                                continue
-                            if line[0] in ['#', '[']:
-                                continue
+                        if '#egg' in line and line.find('#', line.find('#egg') + 1) >= 0:
+                            line = line[0:line.find('#', line.find('#egg') + 1)].strip()
+                        elif line.find('#') > line.find('#egg'):
+                            line = line[0:line.find('#')].strip()
 
-                            if '#egg' in line and line.find('#', line.find('#egg') + 1) >= 0:
-                                line = line[0:line.find('#', line.find('#egg') + 1)].strip()
-                            elif line.find('#') > line.find('#egg'):
-                                line = line[0:line.find('#')].strip()
+                        pkg_name = re.match(r'^([a-z0-9_]+)', line)
+                        if pkg_name.group(1) not in wc_pkgs:
+                            lines_to_keep.append(line)
 
-                            keep = True
-                            if 'git+https://' in line:
-                                for pkg in wc_python_packages:
-                                    if '#egg=' + pkg + '-' in line:
-                                        keep = False
-                                        break
-                            if keep:
-                                lines_to_keep.append(line)
+                return lines_to_keep
 
-                    return lines_to_keep
+            reqs.update(read_packages(os.path.join(dir_name, 'requirements.txt')))
+            reqs.update(read_packages(os.path.join(dir_name, 'requirements.optional.txt')))
+            reqs.update(read_packages(os.path.join(dir_name, 'tests', 'requirements.txt')))
+            reqs.update(read_packages(os.path.join(dir_name, 'docs', 'requirements.txt')))
 
-                reqs.update(read_packages(os.path.join(dir_name, 'requirements.txt')))
-                reqs.update(read_packages(os.path.join(dir_name, 'requirements.optional.txt')))
-                reqs.update(read_packages(os.path.join(dir_name, 'tests', 'requirements.txt')))
-                reqs.update(read_packages(os.path.join(dir_name, 'docs', 'requirements.txt')))
-
-                shutil.rmtree(dir_name)
+            shutil.rmtree(dir_name)
 
         # remove duplicate requirements
         reqs = sorted(reqs, reverse=True)
@@ -639,13 +627,11 @@ class WcEnvManager(object):
         """
         return datetime.now().strftime(self.config['container']['name_format'])
 
-    def setup_container(self, upgrade=False, process_dependency_links=True):
+    def setup_container(self, upgrade=False):
         """ Install Python packages into Docker container
 
         Args:
             upgrade (:obj:`bool`, optional): if :obj:`True`, upgrade package
-            process_dependency_links (:obj:`bool`, optional): if :obj:`True`, install packages from provided
-                URLs
         """
         # copy paths to container
         paths_to_copy = \
@@ -673,8 +659,6 @@ class WcEnvManager(object):
 
                 if upgrade:
                     cmd.append('-U')
-                if process_dependency_links:
-                    cmd.append('--process-dependency-links')
 
                 self.run_process_in_container(cmd, container_user=WcEnvUser.root)
 
