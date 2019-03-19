@@ -5,5 +5,5 @@ docker_squash
 gitpython
 jinja2
 python_dateutil
-pyyaml
+pyyaml >= 5.1
 wc_utils

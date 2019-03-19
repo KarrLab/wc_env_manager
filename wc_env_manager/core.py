@@ -426,7 +426,7 @@ class WcEnvManager(object):
             filename = os.path.join(host_dirname, 'third_party', 'paths.yml')
             if os.path.isfile(filename):
                 with open(filename, 'r') as file:
-                    paths = yaml.load(file)
+                    paths = yaml.load(file, Loader=yaml.FullLoader)
 
                 for rel_src, abs_dest in paths.items():
                     abs_src = os.path.join(host_dirname, 'third_party', rel_src)
