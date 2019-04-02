@@ -109,6 +109,23 @@ RUN apt-get update -y \
     && rm -rf /var/lib/apt/lists/*
 {%- endif %}
 
+# Node
+{% if npm_install -%}
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        nodejs \
+        npm \
+    && rm -rf /var/lib/apt/lists/
+{%- endif %}
+
+# curl
+{% if curl_install -%}
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends \
+        curl \
+    && rm -rf /var/lib/apt/lists/
+{%- endif %}
+
 # install PostgreSQL client
 {% if postgresql_client_install -%}
 RUN apt-get update -y \
