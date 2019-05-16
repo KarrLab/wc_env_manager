@@ -10,7 +10,7 @@
 * Create Docker containers
 
     1. Mount host directories into container
-    2. Copy files (such as configuration files and authentication keys into container
+    2. Copy files (such as configuration files and authentication keys) into container
     3. Install GitHub SSH key
     4. Verify access to GitHub
     5. Install Python packages in mounted directories from host
