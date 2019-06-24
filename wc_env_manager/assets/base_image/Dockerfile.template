@@ -102,24 +102,19 @@ RUN apt-get update -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Node
-{% if npm_install -%}
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
         nodejs \
         npm \
     && rm -rf /var/lib/apt/lists/
-{%- endif %}
 
 # curl
-{% if curl_install -%}
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
         curl \
     && rm -rf /var/lib/apt/lists/
-{%- endif %}
 
 # install PostgreSQL client
-{% if postgresql_client_install -%}
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
         gnupg \
@@ -136,10 +131,8 @@ RUN apt-get update -y \
         wget \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
-{%- endif %}
 
 # install openbabel
-{% if openbabel_install -%}
 ARG openbabel_version=2.4.1
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
@@ -178,11 +171,8 @@ RUN apt-get update -y \
         zlib1g-dev \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
-{%- endif %}
 
 # install ChemAxon Marvin
-
-{% if marvin_install -%}
 ARG marvin_version=19.7
 COPY marvin_linux_${marvin_version}.deb /tmp/
 RUN apt-get update -y \
@@ -197,10 +187,8 @@ RUN apt-get update -y \
     && rm -rf /var/lib/apt/lists/*
 ENV JAVA_HOME=/usr/lib/jvm/default-java \
     CLASSPATH=$CLASSPATH:/opt/chemaxon/marvinsuite/lib/MarvinBeans.jar
-{%- endif %}
 
 # Docker
-{% if docker_install -%}
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \
         apt-transport-https \
@@ -216,7 +204,6 @@ RUN apt-get update -y \
     && apt-get update -y \
     && apt-get install -y --no-install-recommends docker-ce \
     && rm -rf /var/lib/apt/lists/*
-{%- endif %}
 
 # Install Python packages; pbr has to be installed first to workaround error in sphinxcontrib-spelling installation
 COPY requirements.txt /tmp/
@@ -255,22 +242,22 @@ RUN pip${python_version_major_minor} install ete3 \
     && rm /taxdump.tar.gz
 
 # Save image tag to file so it is accessible from within containers
-ARG image_tag={{ image_tag }}
+ARG image_tag='0.2'
 RUN echo ${image_tag} > /etc/docker-image-tag
 
 # install debugging utilities
-# RUN apt-get update -y \
-#    && apt-get install -y --no-install-recommends \
-#       nano \
-#       postgresql \
-#       snapd \
-#    && snap install pycharm-community --classic \
-#    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y \
+   && apt-get install -y --no-install-recommends \
+      nano \
+      postgresql \
+      snapd \
+   && snap install pycharm-community --classic \
+   && rm -rf /var/lib/apt/lists/*
 
 # cleanup
-# RUN apt-get remove -y \
-#       build-essential \
-#       cmake
+RUN apt-get remove -y \
+      build-essential \
+      cmake
 
 # final command
 WORKDIR /root
