@@ -243,10 +243,14 @@ RUN pip${python_version_major_minor} install ete3 \
 ARG image_tag={{ image_tag }}
 RUN echo ${image_tag} > /etc/docker-image-tag
 
-# install debugging utilities
+# install debugging utilities and compiling utilities
 RUN apt-get update -y \
-    && apt-get install -y --no-install-recommends \
-        nano 
+    && apt-get install -y \
+        nano \
+        pkg-config \
+        swig
+    && pip${python_version_major_minor} install -U pip setuptools \
+    && pip${python_version_major_minor} install openbabel
 
 # cleanup
 RUN apt-get remove -y \
