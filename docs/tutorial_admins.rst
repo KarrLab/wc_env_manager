@@ -80,7 +80,6 @@ Third, Set the configuration for *wc_env_manager* by creating a configuration fi
             python_packages = '''
                 pytest
                 pytest-cov
-                git+https://github.com/KarrLab/log.git#egg=log-2016.10.12
                 '''
 
 * Set your DockerHub username and password.
