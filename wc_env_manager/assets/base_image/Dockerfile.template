@@ -209,35 +209,6 @@ ENV JAVA_HOME=/usr/lib/jvm/default-java \
 
 
 
-# Install Python packages; pbr has to be installed first to workaround error in sphinxcontrib-spelling installation
-COPY requirements.txt /tmp/
-RUN apt-get update -y \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        default-libmysqlclient-dev \
-        enchant \
-        graphviz \
-        pandoc \
-        swig \
-    \
-    && pip${python_version_major_minor} install -U pip setuptools \
-    && pip${python_version_major_minor} install -U \
-        cython \
-        ipython \
-        mock \
-        numpy \
-        pbr \
-        pypandoc \
-        requests \
-        six \
-    && pip${python_version_major_minor} install -U git+https://github.com/jjhelmus/CyLP.git@py3#egg=cylp \
-    && pip${python_version_major_minor} install -r /tmp/requirements.txt \
-    && rm tmp/requirements.txt 
-
-# Install NCBI taxonomy database and ETE3 package
-RUN pip${python_version_major_minor} install ete3 \
-    && python${python_version_major_minor} -c "import ete3; ete3.NCBITaxa().get_descendant_taxa('Homo');" \
-    && rm /taxdump.tar.gz
 
 # Save image tag to file so it is accessible from within containers
 ARG image_tag={{ image_tag }}
@@ -248,7 +219,7 @@ RUN apt-get update -y \
     && apt-get install -y \
         nano \
         pkg-config \
-        swig
+        swig \
     && pip${python_version_major_minor} install -U pip setuptools \
     && pip${python_version_major_minor} install openbabel
 
