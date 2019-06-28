@@ -19,6 +19,7 @@ class BaseController(cement.Controller):
     class Meta:
         label = 'base'
         description = "Whole-cell modeling environment manager"
+        help = "Whole-cell modeling environment manager"
         arguments = [
             (['-v', '--version'], dict(action='version', version=wc_env_manager.__version__)),
         ]
@@ -34,6 +35,7 @@ class BaseImageController(cement.Controller):
     class Meta:
         label = 'base-image'
         description = 'Build, push, pull, and remove the base image, `wc_env_dependencies`'
+        help = 'Build, push, pull, and remove the base image, `wc_env_dependencies`'
         stacked_on = 'base'
         stacked_type = 'nested'
         arguments = []
@@ -83,6 +85,7 @@ class ImageController(cement.Controller):
     class Meta:
         label = 'image'
         description = 'Build, push, pull, and remove the image, `wc_env`'
+        help = 'Build, push, pull, and remove the image, `wc_env`'
         stacked_on = 'base'
         stacked_type = 'nested'
         arguments = []
@@ -129,6 +132,7 @@ class NetworkController(cement.Controller):
     class Meta:
         label = 'network'
         description = 'Build and remove a Docker network'
+        help = 'Build and remove a Docker network'
         stacked_on = 'base'
         stacked_type = 'nested'
         arguments = []
@@ -154,6 +158,7 @@ class ContainerController(cement.Controller):
     class Meta:
         label = 'container'
         description = 'Build and remove containers of `wc_env`'
+        help = 'Build and remove containers of `wc_env`'
         stacked_on = 'base'
         stacked_type = 'nested'
         arguments = [
@@ -182,6 +187,7 @@ class AllController(cement.Controller):
     class Meta:
         label = 'all'
         description = 'Build, push, pull, and remove images and containers'
+        help = 'Build, push, pull, and remove images and containers'
         stacked_on = 'base'
         stacked_type = 'embedded'
         arguments = [
