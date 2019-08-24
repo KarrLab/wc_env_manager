@@ -84,6 +84,8 @@ Second, set the configuration for the containers created by *wc_env_manager* by 
                 [[[ports]]]
                     8888 = 8888
 
+    * Configure all credentials required by the packages and tools used by the container. These should be installed in config (`*.cfg`) files that can be accessed by `wc-env-manager`. `~/.wc` is a standard location for whole-cell config files. Failure to install credentials will likely generate `Authentication error` exceptions.
+
 Third, use the following command to use *wc_env* to construct a network of Docker containers.::
 
   wc-env-manager container build
