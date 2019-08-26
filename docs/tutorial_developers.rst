@@ -65,16 +65,13 @@ Second, set the configuration for the containers created by *wc_env_manager* by 
                     -e /root/host/Documents/wc_utils
                     '''
 
-    * Configure additional command(s) that should be run when the main Docker container is created. These commands will be run within a bash shell. For example, this configuration will restore the datanator database when the container is created.::
+    * Configure additional command(s) that should be run when the main Docker container is created. These commands will be run within a bash shell. For example, this configuration could be used to create and import the content of a database when the container is created.::
 
         [wc_env_manager]
             [[container]]
                 setup_script = '''
-                    if [ -x "$$(command -v datanator)" ]; then
-                        datanator db create
-                        datanator db migrate
-                        datanator db restore --restore-schema --do-not-exit-on-error
-                    fi
+                    create db
+                    restore db
                     '''
 
     * Configure the ports that should be exposed by the container. The following example illustrates how to expose port 8888 as 8888.::

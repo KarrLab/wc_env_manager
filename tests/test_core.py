@@ -86,7 +86,7 @@ class WcEnvManagerBuildRemoveBaseImageTestCase(unittest.TestCase):
     def test_get_required_python_packages(self):
         mgr = self.mgr
         self.mgr.config['image']['python_packages'] = '''
-        git+https://github.com/KarrLab/datanator.git#egg=datanator-0.0.1[all]
+        # git+https://github.com/KarrLab/datanator.git#egg=datanator-0.0.1[all]
         git+https://github.com/KarrLab/obj_model.git#egg=obj_model-0.0.1[all]
         git+https://github.com/KarrLab/wc_lang.git#egg=wc_lang-0.0.1[all]
         git+https://github.com/KarrLab/wc_utils.git#egg=wc_utils-0.0.1[all]
