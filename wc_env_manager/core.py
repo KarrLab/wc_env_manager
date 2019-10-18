@@ -387,7 +387,9 @@ class WcEnvManager(object):
         if self.config['verbose']:
             for entry in log:
                 if 'stream' in entry:
-                    print(entry['stream'], end='')
+                    output = entry['stream']
+                    if output:
+                        print(output, end='')
                 elif 'id' in entry and 'status' in entry:
                     print('{}: {}'.format(entry['id'], entry['status']))
                 else:
@@ -639,6 +641,14 @@ class WcEnvManager(object):
             + copy.deepcopy(self.config['image']['paths_to_copy'].values())
         for path in paths_to_copy:
             if os.path.isfile(path['host']) or os.path.isdir(path['host']):
+                # make directory
+                if os.path.isfile(path['host']):
+                    img_dir = os.path.dirname(path['image'])
+                else:
+                    img_dir = path['image']
+                self.run_process_in_container(['mkdir', '-p', img_dir])
+
+                # copy file/directory
                 self.run_process_on_host(['docker', 'cp',
                                           path['host'],
                                           self._container.name + ':' + path['image']])
@@ -790,7 +800,9 @@ class WcEnvManager(object):
 
         # print output
         if self.config['verbose']:
-            print(result.output.decode('utf-8')[0:-1])
+            output = result.output.decode('utf-8')[0:-1]
+            if output:
+                print(output)
 
         # check for errors
         if check and result.exit_code != 0:
