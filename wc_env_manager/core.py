@@ -353,7 +353,7 @@ class WcEnvManager(object):
         # build image
         if self.config['verbose']:
             print('Building image {} with tags {{{}}} in {} ...'.format(
-                image_repo, ', '.join(image_tags)), context_path)
+                image_repo, ', '.join(image_tags), context_path))
 
         if not os.path.isdir(context_path):
             raise WcEnvManagerError('Docker image context "{}" must be a directory'.format(
