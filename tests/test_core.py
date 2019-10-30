@@ -7,8 +7,6 @@
 :License: MIT
 """
 
-from capturer import CaptureOutput
-from inspect import currentframe, getframeinfo
 import capturer
 import datetime
 import docker

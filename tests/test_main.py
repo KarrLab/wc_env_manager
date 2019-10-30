@@ -7,7 +7,6 @@
 """
 
 from wc_env_manager import __main__
-import capturer
 import mock
 import unittest
 import whichcraft

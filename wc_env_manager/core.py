@@ -352,8 +352,8 @@ class WcEnvManager(object):
         """
         # build image
         if self.config['verbose']:
-            print('Building image {} with tags {{{}}} ...'.format(
-                image_repo, ', '.join(image_tags)))
+            print('Building image {} with tags {{{}}} in {} ...'.format(
+                image_repo, ', '.join(image_tags)), context_path)
 
         if not os.path.isdir(context_path):
             raise WcEnvManagerError('Docker image context "{}" must be a directory'.format(
@@ -377,8 +377,11 @@ class WcEnvManager(object):
             raise WcEnvManagerError("Docker API error: Dockerfile contains syntax errors:\n  {}".format(
                 str(exception).replace('\n', '\n  ')))
         except docker.errors.BuildError as exception:
-            raise WcEnvManagerError("Docker build error: Error building Dockerfile:\n  {}".format(
-                str(exception).replace('\n', '\n  ')))
+            raise WcEnvManagerError((
+                "Docker build error: Error building Dockerfile.\n\n"
+                "  Use the Docker command-line program to see the full build log: `docker build -f {} {}`\n\n"
+                "  {}"
+                ).format(context_path, dockerfile_path, str(exception).replace('\n', '\n  ')))
         except Exception as exception:
             raise WcEnvManagerError("{}:\n  {}".format(
                 exception.__class__.__name__, str(exception).replace('\n', '\n  ')))
