@@ -73,6 +73,8 @@ class WcEnvManager(object):
         _container (:obj:`docker.models.containers.Container`): current Docker container
     """
 
+    IMAGE_OS_SEP = '/'
+
     def __init__(self, config=None):
         """
         Args:
@@ -291,12 +293,12 @@ class WcEnvManager(object):
                 raise WcEnvManagerError('Copied files cannot have name `requirements.txt`')  # pragma: no cover
             paths_to_copy.append({
                 'host': 'requirements.txt',
-                'image': os.path.join('/tmp', 'requirements.txt'),
+                'image': self.IMAGE_OS_SEP.join(['/tmp', 'requirements.txt']),
             })
             with open(host_requirements_file_name, 'w') as file:
                 file.write(self.config['image']['python_packages'])
 
-            image_requirements_file_name = os.path.join('/tmp', 'requirements.txt')
+            image_requirements_file_name = self.IMAGE_OS_SEP.join(['/tmp', 'requirements.txt'])
         else:
             image_requirements_file_name = None
 
@@ -415,7 +417,7 @@ class WcEnvManager(object):
             :obj:`list` of :obj:`dict`: configuration file paths to copy from ~/.wc to Docker image
         """
         host_dirname = self.config['image']['config_path']
-        image_dirname = os.path.join('/root', '.wc')
+        image_dirname = self.IMAGE_OS_SEP.join(['/root', '.wc'])
 
         paths_to_copy_to_image = []
 
@@ -424,7 +426,7 @@ class WcEnvManager(object):
             for path in glob.glob(os.path.join(host_dirname, '*.cfg')):
                 paths_to_copy_to_image.append({
                     'host': path,
-                    'image': os.path.join(image_dirname, os.path.basename(path)),
+                    'image': self.IMAGE_OS_SEP.join([image_dirname, os.path.basename(path)]),
                 })
 
             # copy third party config files to image
@@ -436,7 +438,7 @@ class WcEnvManager(object):
                 for rel_src, abs_dest in paths.items():
                     abs_src = os.path.join(host_dirname, 'third_party', rel_src)
                     if abs_dest[0:2] == '~/':
-                        abs_dest = os.path.join('/root', abs_dest[2:])
+                        abs_dest = self.IMAGE_OS_SEP.join(['/root', abs_dest[2:]])
                     paths_to_copy_to_image.append({'host': abs_src, 'image': abs_dest})
             else:
                 warnings.warn(('Third party configuration files will not be copied to the image'
