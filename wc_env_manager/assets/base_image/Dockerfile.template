@@ -160,6 +160,7 @@ RUN apt-get update -y \
         cmake \
         libcairo2-dev \
         libeigen3-dev \
+        libxml2 \
         libxml2-dev \
         tar \
         wget \
