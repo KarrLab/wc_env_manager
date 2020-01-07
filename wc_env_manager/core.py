@@ -238,6 +238,11 @@ class WcEnvManager(object):
 
             shutil.rmtree(dir_name)
 
+        # remove disabled packages
+        reqs.remove('cylp')
+        reqs.remove('gurobi')
+        reqs.remove('xpress')
+
         # remove duplicate requirements
         reqs = sorted(reqs, reverse=True)
         unique_reqs = []
