@@ -13,9 +13,9 @@ RUN chmod 0600 ~/.ssh/id_rsa \
 
 # Install Python packages from PyPI and GitHub
 {% if requirements_file_name -%}
-RUN pip{{ python_version }} install -r {{ requirements_file_name }}
+RUN pip{{ python_version }} install --compile -r {{ requirements_file_name }}
 {%- endif %}
 
 # Set default command
-ENTRYPOINT ["wc"]
+ENTRYPOINT ["wc-cli"]
 CMD []
