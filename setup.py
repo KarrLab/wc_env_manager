@@ -16,7 +16,6 @@ name = 'wc_env_manager'
 dirname = os.path.dirname(__file__)
 package_data = {
     name: [
-        'VERSION',
         'config/*.cfg',
         'assets/*'
         'assets/**/*'
