@@ -197,7 +197,9 @@ RUN apt-get update -y \
 # install ChemAxon Marvin
 
 {% if marvin_install -%}
-ARG marvin_version=19.27
+ARG marvin_version=Helium.2
+ARG marvin_license={{ marvin_license }}
+ENV CHEMAXON_LICENSE_SERVER_KEY=${marvin_license}
 COPY marvin_linux_${marvin_version}.deb /tmp/
 RUN apt-get update -y \
     && apt-get install -y --no-install-recommends \

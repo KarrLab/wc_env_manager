@@ -26,6 +26,11 @@ First, create contexts for building the images. This can include licenses and in
    a. Create license at `http://www.gurobi.com/downloads/licenses/license-center <http://www.gurobi.com/downloads/licenses/license-center>`_
    b. Copy the license to the `gurobi_license` build argument for the base image in the *wc_env_manager* configuration
 
+#. Prepare Marvin installation
+
+   a. Download Marvin from `https://chemaxon.com/products/marvin/download <https://chemaxon.com/products/marvin/download>`_
+   b. Copy license key from `https://accounts.chemaxon.com/licenses <https://accounts.chemaxon.com/licenses>`_ to the `marvin_license` build argument for the base image in the *wc_env_manager* configuration
+
 #. Prepare Mosek installation
 
    a. Request an academic license at `https://license.mosek.com/academic/ <https://license.mosek.com/academic/>`_
